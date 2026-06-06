@@ -12,9 +12,6 @@ graph LR
     API --> Model["Trained XGBoost Model"]
     Model --> SHAP["SHAP Explanations"]
     DB --> Dashboard
-Model features – Full 30 features of the original dataset:
-Time (converted to cyclic hour features) + Amount (log + quantile) + V1…V28 (PCA‑anonymised).
-The API expects all V1…V28 – they are not set to zero; the dashboard sends them from your CSV.
 
 📁 Project Structure (after refactor)
 text
@@ -139,11 +136,11 @@ The API returns fraud probability, decision (APPROVE / REVIEW / BLOCK), risk lev
 Results are stored in Neon and displayed in the dashboard's history.
 
 🔁 Updating
-API: push changes to GitHub → Render auto‑redeploys.
+API: push changes to GitHub → Render auto‑re deploys.
 
 Database: manage via Neon console.
 
-Dashboard: push changes to GitHub → Netlify auto‑redeploys.
+Dashboard: push changes to GitHub → Netlify auto‑re deploys.
 
 ⚠️ Important Notes for Production
 Cold starts: Render spins down after 15 minutes – the first request may take 30‑50 seconds.
@@ -165,3 +162,27 @@ Educational / research use only. Not for live financial systems without proper v
 
 👨‍💻 Author
 Marvin – Data Science & AI Engineer
+
+Installation (local development)
+bash
+# Clone the repo
+git clone https://github.com/MarvinVutshila/fraud-detection.git
+cd fraud-detection
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate      # Linux/Mac
+.\venv\Scripts\activate       # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your database URL and secrets
+
+# Run the API
+python main.py
+Now open http://localhost:8000 – you will see the API root endpoint with links to /docs (Swagger UI).
+The static dashboard (if served via the API) would be at http://localhost:8000/static (optional).
+
