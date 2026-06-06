@@ -5,12 +5,12 @@ End‑to‑end fraud detection using **XGBoost** (trained on the Kaggle Credit C
 ## 🎯 Real System Architecture (current)
 
 ```mermaid
-flowchart LR
-    User[User / CSV] --> Dashboard[HTML/JS Dashboard]
-    Dashboard --> API[FastAPI Backend]
-    API --> DB[(PostgreSQL / Neon)]
-    API --> Model[Trained XGBoost Model]
-    Model --> SHAP[SHAP Explanations]
+graph LR
+    User["User / CSV"] --> Dashboard["HTML/JS Dashboard"]
+    Dashboard --> API["FastAPI Backend"]
+    API --> DB[("PostgreSQL / Neon")]
+    API --> Model["Trained XGBoost Model"]
+    Model --> SHAP["SHAP Explanations"]
     DB --> Dashboard
 Model features – Full 30 features of the original dataset:
 Time (converted to cyclic hour features) + Amount (log + quantile) + V1…V28 (PCA‑anonymised).
