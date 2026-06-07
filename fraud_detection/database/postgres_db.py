@@ -11,7 +11,7 @@ from psycopg2.extras import RealDictCursor
 logger = logging.getLogger(__name__)
 
 # -------------------------------------------------------------------
-# SQL Statements (run only once at application startup)
+# SQL statements (run only once)
 # -------------------------------------------------------------------
 CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS transactions (
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS transaction_overrides (
 """
 
 # -------------------------------------------------------------------
-# Global connection pool (initialized once at startup)
+# Global connection pool (initialised once at startup)
 # -------------------------------------------------------------------
 _pool: Optional[SimpleConnectionPool] = None
 _dsn: Optional[str] = None
@@ -55,8 +55,8 @@ def init_db_pool(dsn: str, min_conn: int = 1, max_conn: int = 20) -> None:
 def create_tables() -> None:
     """Run table creation – call once at startup after init_db_pool()."""
     if _pool is None:
-        raise RuntimeError("Database pool not initialized. Call init_db_pool() first.")
-    
+        raise RuntimeError("Database pool not initialised. Call init_db_pool() first.")
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(CREATE_TABLE_SQL)
@@ -72,8 +72,8 @@ def get_connection():
     The connection is automatically returned to the pool when the block exits.
     """
     if _pool is None:
-        raise RuntimeError("Database pool not initialized. Call init_db_pool() first.")
-    
+        raise RuntimeError("Database pool not initialised. Call init_db_pool() first.")
+
     conn = _pool.getconn()
     try:
         yield conn
@@ -82,19 +82,19 @@ def get_connection():
 
 
 # -------------------------------------------------------------------
-# Database class – uses the pool internally, no per-query connection overhead
+# Database class – uses the pool internally, no per-query overhead
 # -------------------------------------------------------------------
 class Database:
     """
     Main database accessor. Reuses the global connection pool.
     Do NOT create a new instance per request – create ONE global instance.
     """
-    
+
     def __init__(self) -> None:
         """No DDL here – tables must already exist."""
         if _pool is None:
-            raise RuntimeError("Database pool not initialized. Call init_db_pool() first.")
-    
+            raise RuntimeError("Database pool not initialised. Call init_db_pool() first.")
+
     def insert_transaction(self, transaction_id: str, amount: float,
                            probability: float, decision: str,
                            risk_level: str, timestamp) -> int:
@@ -111,7 +111,7 @@ class Database:
                 row_id = cur.fetchone()[0]
             conn.commit()
         return row_id
-    
+
     def fetch_history(self, limit: int, offset: int,
                       decision_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         if decision_filter:
@@ -129,13 +129,13 @@ class Database:
                 LIMIT %s OFFSET %s;
             """
             params = (limit, offset)
-        
+
         with get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(sql, params)
                 rows = cur.fetchall()
         return [dict(row) for row in rows]
-    
+
     def count_transactions(self, decision_filter: Optional[str] = None) -> int:
         if decision_filter:
             sql = "SELECT COUNT(*) FROM transactions WHERE decision = %s;"
@@ -143,17 +143,17 @@ class Database:
         else:
             sql = "SELECT COUNT(*) FROM transactions;"
             params = ()
-        
+
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
                 return cur.fetchone()[0]
-    
+
     def get_transactions(self, limit: int = 100, offset: int = 0,
                          decision: Optional[str] = None) -> List[Dict[str, Any]]:
         # Same as fetch_history – you can keep both or remove one
         return self.fetch_history(limit, offset, decision)
-    
+
     def get_transaction(self, transaction_id: str) -> Optional[Dict[str, Any]]:
         sql = "SELECT * FROM transactions WHERE transaction_id = %s;"
         with get_connection() as conn:
@@ -161,7 +161,7 @@ class Database:
                 cur.execute(sql, (transaction_id,))
                 row = cur.fetchone()
         return dict(row) if row else None
-    
+
     def get_override(self, transaction_id: str) -> Optional[Dict[str, Any]]:
         sql = "SELECT * FROM transaction_overrides WHERE transaction_id = %s;"
         with get_connection() as conn:
@@ -169,7 +169,7 @@ class Database:
                 cur.execute(sql, (transaction_id,))
                 row = cur.fetchone()
         return dict(row) if row else None
-    
+
     def set_override(self, transaction_id: str, original_decision: str,
                      new_decision: str, overridden_by: str, reason: str) -> None:
         sql = """
