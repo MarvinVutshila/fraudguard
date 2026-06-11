@@ -13,13 +13,6 @@ __pycache__/
 # models_store/
 # *.pkl
 
-# Training data & outputs
-data/
-outputs/
-*.csv
-*.png
-*.pptx
-
 # Deployment/test artifacts
 fraud_detection_deploy*/
 add_missing_index.sql
@@ -37,3 +30,7 @@ show_structure.py
 .vscode/
 .idea/
 *.log
+
+# Data folder – only keep the simulation dataset
+data/*
+!data/simulation.csv
