@@ -2,8 +2,8 @@ name: Daily Data Ingestion
 
 on:
   schedule:
-    - cron: '0 2 * * *'   # Runs daily at 2:00 AM UTC
-  workflow_dispatch:       # Allows manual trigger from Actions tab
+    - cron: '0 2 * * *'   # Daily at 2 AM UTC
+  workflow_dispatch:
 
 jobs:
   ingest:
@@ -22,15 +22,10 @@ jobs:
         run: |
           pip install pandas requests tqdm
 
-      # If your CSV is large and not committed, uncomment this block and add the download URL:
-      # - name: Download CSV
-      #   run: |
-      #     wget -O data/test_transactions.csv https://your-public-url.com/path/to/file.csv
-
       - name: Run ingestion script
         env:
-          API_URL: ${{ secrets.API_URL }}   # Or hardcode if you prefer
+          API_URL: ${{ secrets.API_URL }}
           BATCH_SIZE: 100
-          CSV_FILE: data/test_transactions.csv
+          CSV_FILE: data/simulation.csv   # <-- Pointing to your simulation file
         run: |
           python ingest_pipeline.py
