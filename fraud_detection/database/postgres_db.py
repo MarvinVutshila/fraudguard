@@ -213,6 +213,7 @@ class Database:
                 row = cur.fetchone()
         return dict(row) if row else None
 
+    # ---- FIXED: set_override preserves original_decision ----
     def set_override(self, transaction_id: str, original_decision: str,
                      new_decision: str, overridden_by: str, reason: str) -> None:
         sql = """
@@ -220,11 +221,10 @@ class Database:
                 (transaction_id, original_decision, new_decision, overridden_by, reason)
             VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (transaction_id) DO UPDATE SET
-                original_decision = EXCLUDED.original_decision,
                 new_decision = EXCLUDED.new_decision,
                 overridden_by = EXCLUDED.overridden_by,
                 reason = EXCLUDED.reason,
-                timestamp = NOW();
+                timestamp = NOW()
         """
         with get_connection() as conn:
             with conn.cursor() as cur:
