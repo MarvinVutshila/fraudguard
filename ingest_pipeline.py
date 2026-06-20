@@ -54,16 +54,17 @@ def ingest_csv():
         transactions = []
         for _, row in chunk.iterrows():
             tx = {
-                # 🔥 FIXED: Use lowercase 'amount' to match backend!
-                "amount": float(row["Amount"]),    # <-- Fixed here
+                # 🔥 FIXED: Use capital 'A' to match backend
+                "Amount": float(row["Amount"]),
                 "Time": float(row.get("Time", 0)),
             }
-            # Add transaction_id if available, else let backend generate
-            if "transaction_id" in row:
+            # Add transaction_id if available
+            if "transaction_id" in row and pd.notna(row["transaction_id"]):
                 tx["transaction_id"] = str(row["transaction_id"])
             # Add V1..V28
             for v in range(1, 29):
-                tx[f"V{v}"] = float(row.get(f"V{v}", 0.0))
+                col = f"V{v}"
+                tx[col] = float(row.get(col, 0.0))
             transactions.append(tx)
 
         try:
@@ -75,8 +76,7 @@ def ingest_csv():
             processed += len(chunk)
         except Exception as e:
             logger.error(f"Failed at row {i}: {e}")
-            # Log the response body if available for debugging
-            if hasattr(e, 'response') and e.response:
+            if hasattr(e, 'response') and e.response is not None:
                 logger.error(f"Response: {e.response.text[:200]}")
             save_state({"last_index": i})
             break
