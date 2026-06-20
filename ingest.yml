@@ -1,0 +1,31 @@
+name: Daily Data Ingestion
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # Daily at 2 AM UTC
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pandas requests tqdm
+
+      - name: Run ingestion script
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          BATCH_SIZE: 100
+          CSV_FILE: data/simulation.csv   # <-- Pointing to your simulation file
+        run: |
+          python ingest_pipeline.py
