@@ -1,4 +1,4 @@
-# main.py (final, with connection pool)
+﻿# main.py (final, with connection pool)
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -64,21 +64,24 @@ async def lifespan(app: FastAPI):
 
     yield
     logger.info("Shutting down – database pool will be closed automatically")
-    # Optional: close the pool explicitly if you want
-    # from fraud_detection.database.postgres_db import _pool
-    # if _pool:
-    #     _pool.closeall()
 
 
 app = FastAPI(title="Fraud Detection API", version="3.0.0", lifespan=lifespan)
 
-# Include API routers FIRST
+# Include API routers (this includes all endpoints from routes.py)
 app.include_router(router)
 
-# Then serve static frontend (catch‑all for unmatched paths)
-frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
+# ---------- Serve the Built Frontend ----------
+# In production, the frontend is built into 'frontend/dist'.
+# Fallback to 'frontend' for local development.
+frontend_path = os.path.join(os.path.dirname(__file__), "frontend", "dist")
+if not os.path.exists(frontend_path):
+    frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
+
 if os.path.exists(frontend_path):
     app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+else:
+    logger.warning(f"Frontend folder not found at {frontend_path}. API only mode.")
 
 
 if __name__ == "__main__":

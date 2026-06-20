@@ -9,6 +9,12 @@ class UserApprove(BaseModel):
     user_id: int
     approve: bool
 
+# ---- Test route to confirm the router is mounted ----
+@router.get("/test")
+async def test_route():
+    return {"message": "Admin router works! You can now access /admin/users/pending, etc."}
+
+# ---- Main endpoints ----
 @router.get("/users/pending")
 async def get_pending_users(current_user=Depends(get_current_admin)):
     with get_connection() as conn:

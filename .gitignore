@@ -1,36 +1,51 @@
-# Environment & secrets
-.env
-.env.*
-!.env.example
-
-# Virtual environment
+# Python
 venv/
-venv_*/
 __pycache__/
 *.pyc
-
-# Model store (large binary files – keep only if small, but generally exclude)
-# models_store/
-# *.pkl
-
-# Deployment/test artifacts
-fraud_detection_deploy*/
-add_missing_index.sql
-test_transactions.csv
-model_evaluation_plots.png
-Fraud_Detection_Report.pptx
-
-# Audit/fix scripts (optional – keep if you want, but not required)
-code_audit.py
-prepare_for_connections.py
-apply_fixes.py
-show_structure.py
-
-# IDE / system
-.vscode/
-.idea/
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
 *.log
 
-# Data folder – only keep the simulation dataset
-data/*
-!data/simulation.csv
+# Environment
+.env
+.env.local
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Data & large files
+data/
+*.csv
+*.pkl
+*.jpg
+*.png
+*.pptx
+*.sql
+
+# Test files
+tests/
+evaluate_mode.py
+train.py
+batch_processor.py
+code_audit.py
+apply_fixes.py
+prepare_for_connections.py
+show_structure.py
+eval_state.json
+test_transactions.csv
+add_missing_index.sql
+model_evaluation_plots.png
+
+# Docker (optional, keep if you use containers)
+# Dockerfile
+# docker-compose.yml
+
+# Render will ignore .gitignore anyway, but good to clean repo.

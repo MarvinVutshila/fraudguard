@@ -1,0 +1,31 @@
+import { useNavigate } from 'react-router-dom';
+
+export default function Navbar({ title, onRefresh }) {
+  const navigate = useNavigate();
+
+  const logout = () => {
+    localStorage.removeItem('fg_token');
+    navigate('/login');
+  };
+
+  return (
+    <header className="navbar">
+      <div className="navbar-left">
+        <h1 className="page-title">{title}</h1>
+        <span className="breadcrumb">FraudGuard / {title}</span>
+      </div>
+      <div className="navbar-right">
+        <button className="icon-btn" onClick={onRefresh} title="Refresh">↺</button>
+        <button className="icon-btn" onClick={() => {/* toggle theme */}}>☀️</button>
+        <div className="user-pill">
+          <span className="user-avatar">👤</span>
+          <span className="user-name">Analyst</span>
+          <span className="dropdown-arrow">▾</span>
+          <div className="dropdown">
+            <button onClick={logout}>🚪 Logout</button>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
