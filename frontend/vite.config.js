@@ -5,24 +5,24 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      // Auth endpoints (always proxy)
+      // Auth endpoints (always proxy to backend)
       '/auth': 'http://localhost:8000',
 
-      // Transactions (GET) – this is API, not a page
+      // Transactions API
       '/transactions': 'http://localhost:8000',
 
-      // Predict – only proxy POST requests (API), not GET (page)
+      // Predict – POST = API, GET = page
       '/predict': {
         target: 'http://localhost:8000',
         bypass: (req) => {
           if (req.method === 'POST') {
-            return undefined; // proxy
+            return undefined; // proxy to backend
           }
-          return '/index.html';
+          return '/index.html'; // serve React app for GET
         },
       },
 
-      // Model info – only proxy /model/info (API), not /model (page)
+      // Model – only /model/info is API, /model is page
       '/model': {
         target: 'http://localhost:8000',
         bypass: (req) => {
@@ -37,7 +37,7 @@ export default defineConfig({
       '/admin': {
         target: 'http://localhost:8000',
         bypass: (req) => {
-          // API endpoints: /admin/users, /admin/login-logs, /admin/overrides, /admin/approve
+          // API endpoints under /admin
           if (req.url.startsWith('/admin/users') ||
               req.url.startsWith('/admin/login-logs') ||
               req.url.startsWith('/admin/overrides') ||
@@ -49,7 +49,22 @@ export default defineConfig({
         },
       },
 
-      // Fallback for any other API-like endpoints
+      // ---- SPA ROUTES (add these!) ----
+      '/history': {
+        target: 'http://localhost:8000',
+        bypass: () => '/index.html',
+      },
+      '/approval': {
+        target: 'http://localhost:8000',
+        bypass: () => '/index.html',
+      },
+      '/batch': {
+        target: 'http://localhost:8000',
+        bypass: () => '/index.html',
+      },
+      // If you have other routes like /monitoring, /model-info, etc., add them similarly.
+
+      // Fallback API endpoints
       '/users': 'http://localhost:8000',
       '/health': 'http://localhost:8000',
     },
