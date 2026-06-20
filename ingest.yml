@@ -1,0 +1,36 @@
+name: Daily Data Ingestion
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # Runs daily at 2:00 AM UTC
+  workflow_dispatch:       # Allows manual trigger from Actions tab
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pandas requests tqdm
+
+      # If your CSV is large and not committed, uncomment this block and add the download URL:
+      # - name: Download CSV
+      #   run: |
+      #     wget -O data/test_transactions.csv https://your-public-url.com/path/to/file.csv
+
+      - name: Run ingestion script
+        env:
+          API_URL: ${{ secrets.API_URL }}   # Or hardcode if you prefer
+          BATCH_SIZE: 100
+          CSV_FILE: data/test_transactions.csv
+        run: |
+          python ingest_pipeline.py
