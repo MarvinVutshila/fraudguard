@@ -1,6 +1,7 @@
-﻿# main.py (final, with connection pool)
-from fastapi import FastAPI, HTTPException
+# main.py (final, with connection pool and SPA fallback)
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 import logging
 import os
@@ -72,12 +73,25 @@ app = FastAPI(title="Fraud Detection API", version="3.0.0", lifespan=lifespan)
 app.include_router(router)
 
 # ---------- Serve the Built Frontend ----------
-# In production, the frontend is built into 'frontend/dist'.
-# Fallback to 'frontend' for local development.
 frontend_path = os.path.join(os.path.dirname(__file__), "frontend", "dist")
 if not os.path.exists(frontend_path):
     frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
+logger.info(f"Frontend path set to: {frontend_path}")
 
+# ---------- SPA Fallback Middleware ----------
+@app.middleware("http")
+async def spa_fallback(request: Request, call_next):
+    response = await call_next(request)
+    # If the response is a 404 and the request is not for an API route
+    if response.status_code == 404 and not request.url.path.startswith("/admin"):
+        # Check if the path is trying to load a file (e.g., .js, .css) – those should stay 404
+        if "." not in request.url.path.split("/")[-1]:
+            index_path = os.path.join(frontend_path, "index.html")
+            if os.path.exists(index_path):
+                return FileResponse(index_path)
+    return response
+
+# Mount static files (if the folder exists)
 if os.path.exists(frontend_path):
     app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 else:
