@@ -1,4 +1,4 @@
-﻿name: Daily Data Ingestion
+name: Daily Data Ingestion
 
 on:
   schedule:
@@ -26,6 +26,7 @@ jobs:
         env:
           API_URL: https://fraudguard-434w.onrender.com/predict/batch
           BATCH_SIZE: 100
+          DAILY_LIMIT: 100        # <-- Process only 100 rows per run
           CSV_FILE: data/simulation.csv
         run: |
           python ingest_pipeline.py
