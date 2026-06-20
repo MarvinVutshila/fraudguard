@@ -1,4 +1,4 @@
-﻿import os
+import os
 import sys
 import json
 import logging
@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 API_URL = os.getenv("API_URL", "https://fraudguard-434w.onrender.com/predict/batch")
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", 100))
+DAILY_LIMIT = int(os.getenv("DAILY_LIMIT", 100))  # <-- New: max rows to process per run
 CSV_FILE = os.getenv("CSV_FILE", "data/simulation.csv")
 STATE_FILE = "ingest_state.json"
 
@@ -32,13 +33,25 @@ def ingest_csv():
     df = pd.read_csv(CSV_FILE)
     total = len(df)
     logger.info(f"Loaded {total} rows")
+
     state = load_state()
     start = state.get("last_index", 0)
     if start >= total:
-        logger.info("All done.")
+        logger.info("All rows already processed. Nothing to do.")
         return
+
+    # Calculate how many rows to process this run (capped by DAILY_LIMIT)
+    end_target = min(start + DAILY_LIMIT, total)
+    logger.info(f"Processing rows {start} to {end_target-1} (limit: {DAILY_LIMIT})")
+
+    processed = 0
     for i in tqdm(range(start, total, BATCH_SIZE)):
         end = min(i + BATCH_SIZE, total)
+        # Stop if we've reached the daily limit
+        if processed >= DAILY_LIMIT:
+            logger.info(f"Reached daily limit of {DAILY_LIMIT} transactions. Stopping for today.")
+            break
+
         chunk = df.iloc[i:end]
         transactions = []
         for _, row in chunk.iterrows():
@@ -50,16 +63,21 @@ def ingest_csv():
             for v in range(1, 29):
                 tx[f"V{v}"] = float(row.get(f"V{v}", 0.0))
             transactions.append(tx)
+
         try:
             r = requests.post(API_URL, json=transactions, timeout=60)
             r.raise_for_status()
-            logger.info(f"Batch {i//BATCH_SIZE+1}: got {len(r.json().get('predictions', []))} predictions")
+            predictions = r.json().get('predictions', [])
+            logger.info(f"Batch {i//BATCH_SIZE+1}: got {len(predictions)} predictions")
+            # Update state after successful batch
             save_state({"last_index": end})
+            processed += len(chunk)
         except Exception as e:
             logger.error(f"Failed at row {i}: {e}")
             save_state({"last_index": i})
             break
-    logger.info("Done")
+
+    logger.info(f"Run complete. Processed {processed} transactions today. Next start index: {end_target}")
 
 if __name__ == "__main__":
     ingest_csv()
