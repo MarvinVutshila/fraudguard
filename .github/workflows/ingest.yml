@@ -2,16 +2,15 @@ name: Daily Data Ingestion
 
 on:
   schedule:
-    - cron: '33 23 * * *'   # 11:33 PM UTC
-    - cron: '33 5 * * *'    # 5:33 AM UTC
-    - cron: '33 11 * * *'   # 11:33 AM UTC
-    - cron: '33 17 * * *'   # 5:33 PM UTC
-  workflow_dispatch:         # Manual trigger
+    - cron: '36 11 * * *'   # 1:36 PM your time
+    - cron: '36 17 * * *'   # 7:36 PM your time
+    - cron: '36 23 * * *'   # 1:36 AM your time
+    - cron: '36 5 * * *'    # 7:36 AM your time
+  workflow_dispatch:
 
 jobs:
   ingest:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
