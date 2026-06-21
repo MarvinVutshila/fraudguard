@@ -2,8 +2,8 @@ name: Daily Data Ingestion
 
 on:
   schedule:
-    - cron: '10 6 * * *'   # Runs daily at 2:00 AM UTC
-  workflow_dispatch:       # Allows manual trigger
+    - cron: '15 18 * * *'   # Runs at 6:15 PM UTC daily
+  workflow_dispatch:         # Allows manual trigger
 
 jobs:
   ingest:
@@ -26,7 +26,7 @@ jobs:
         env:
           API_URL: https://fraudguard-434w.onrender.com/predict/batch
           BATCH_SIZE: 100
-          DAILY_LIMIT: 100        # <-- Process only 100 rows per run
+          DAILY_LIMIT: 100
           CSV_FILE: data/simulation.csv
         run: |
           python ingest_pipeline.py
