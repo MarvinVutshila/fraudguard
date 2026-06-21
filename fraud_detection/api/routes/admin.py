@@ -12,10 +12,10 @@ class UserApprove(BaseModel):
     user_id: int
     approve: bool
 
-# ---- Test route to confirm the router is mounted ----
+# ---- Test route ----
 @router.get("/test")
 async def test_route():
-    return {"message": "Admin router works! You can now access /admin/users/pending, etc."}
+    return {"message": "Admin router works!"}
 
 # ---- User approval endpoints ----
 @router.get("/users/pending")
@@ -45,7 +45,7 @@ async def get_login_logs(current_user=Depends(get_current_admin)):
     logs = [{"username": r[0], "success": r[1], "ip": r[2], "user_agent": r[3], "timestamp": r[4]} for r in rows]
     return logs
 
-# ---- NEW: Override history (Audit Log) ----
+# ---- Override history ----
 @router.get("/overrides")
 async def get_overrides(
     limit: int = 100,
@@ -63,7 +63,7 @@ async def get_overrides(
         logger.error(f"Error fetching overrides: {e}", exc_info=True)
         raise HTTPException(500, "Failed to fetch override history")
 
-# ---- NEW: Override a transaction (and update its decision) ----
+# ---- Single transaction override ----
 @router.post("/transactions/override")
 async def override_transaction(
     request: Request,
@@ -75,7 +75,7 @@ async def override_transaction(
         transaction_id = data.get('transaction_id')
         new_decision = data.get('new_decision')
         reason = data.get('reason', '')
-        username = current_user.get('sub') if isinstance(current_user, dict) else 'admin'  # fallback
+        username = current_user.get('sub') if isinstance(current_user, dict) else 'admin'
 
         if not transaction_id or not new_decision:
             raise HTTPException(400, "transaction_id and new_decision are required")
@@ -101,7 +101,7 @@ async def override_transaction(
             'REVIEW': 'MEDIUM'
         }
         new_risk = risk_map.get(new_decision, 'MEDIUM')
-        storage.db.update_transaction_decision(transaction_id, new_decision, new_risk)
+        storage.update_transaction_decision(transaction_id, new_decision, new_risk)
 
         return {"message": f"Transaction {transaction_id} overridden to {new_decision}"}
     except HTTPException:
@@ -109,3 +109,24 @@ async def override_transaction(
     except Exception as e:
         logger.error(f"Error overriding transaction: {e}", exc_info=True)
         raise HTTPException(500, "Failed to override transaction")
+
+# ---- Bulk approve (optional, but useful for "Approve All") ----
+@router.post("/transactions/bulk-approve")
+async def bulk_approve(current_user=Depends(get_current_admin)):
+    """Approve all pending REVIEW transactions in one go."""
+    try:
+        services = get_services()
+        storage = services.storage_service
+        db = services.storage_service.db
+        reviews = storage.get_transactions(limit=1000, decision='REVIEW')
+        count = 0
+        username = current_user.get('sub') if isinstance(current_user, dict) else 'admin'
+        for tx in reviews:
+            tx_id = tx['transaction_id']
+            storage.set_override(tx_id, tx['decision'], 'APPROVE', username, 'Bulk approval')
+            db.update_transaction_decision(tx_id, 'APPROVE', 'LOW')
+            count += 1
+        return {"message": f"Approved {count} transactions"}
+    except Exception as e:
+        logger.error(f"Bulk approve failed: {e}", exc_info=True)
+        raise HTTPException(500, "Bulk approve failed")
