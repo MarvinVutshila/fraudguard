@@ -23,7 +23,16 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pandas requests tqdm psycopg2-binary
+          pip install pandas requests tqdm
+
+      - name: Restore state cache
+        uses: actions/cache@v3
+        id: cache-state
+        with:
+          path: ingest_state.json
+          key: ingest-state
+          restore-keys: |
+            ingest-state
 
       - name: Run ingestion script
         env:
@@ -31,6 +40,11 @@ jobs:
           BATCH_SIZE: 100
           DAILY_LIMIT: 100
           CSV_FILE: data/simulation.csv
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           python ingest_pipeline.py
+
+      - name: Save state cache
+        uses: actions/cache@v3
+        with:
+          path: ingest_state.json
+          key: ingest-state
