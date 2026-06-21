@@ -23,6 +23,10 @@ async def get_transactions(
     Fetch transactions with override information.
     """
     try:
+        # Normalize decision: treat empty string or 'All' as None
+        if decision in ("", "All", "all"):
+            decision = None
+
         svc = get_services()
         records = svc.storage_service.get_transactions(limit, offset, decision)
 
@@ -40,7 +44,11 @@ async def get_transactions(
             rec["overridden_by"] = override["overridden_by"] if override else None
             result.append(rec)
 
+        # Get the TRUE total count (without pagination)
         total = svc.storage_service.count_transactions(decision)
+
+        # Log the values for debugging
+        logger.info(f"[transactions] limit={limit}, offset={offset}, decision={decision}, records={len(result)}, total={total}")
 
         return {
             "transactions": result,
