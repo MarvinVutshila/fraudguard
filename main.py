@@ -72,21 +72,28 @@ if not os.path.exists(frontend_path):
     frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
 logger.info(f"Frontend path set to: {frontend_path}")
 
-# 3. Mount static files (this serves assets like .js, .css, images)
-#    The mount is done BEFORE the catch‑all, so static files are found first.
-if os.path.exists(frontend_path):
-    app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
-
-# 4. Catch‑all route: serve index.html for any unmatched path
-#    This will only be reached if no API route or static file matches.
+# 3. Catch‑all route for SPA – serves existing files and falls back to index.html
 @app.get("/{full_path:path}")
-async def serve_spa(request: Request, full_path: str):
-    # For security, skip if the path looks like an API endpoint (but API routes are already handled)
-    # Serve index.html for all other paths
+async def serve_spa(full_path: str):
+    # If the path starts with an API prefix, it's already handled by the router
+    # But if it reaches here, it's not an API route.
+    # Build the file path
+    file_path = os.path.join(frontend_path, full_path)
+    if os.path.isfile(file_path):
+        return FileResponse(file_path)
+    # Otherwise, serve index.html (SPA fallback)
     index_path = os.path.join(frontend_path, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return HTTPException(status_code=404, detail="Not Found")
+    raise HTTPException(status_code=404, detail="Not Found")
+
+# 4. Optional: handle root path explicitly (though catch‑all handles it)
+@app.get("/")
+async def root():
+    index_path = os.path.join(frontend_path, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    raise HTTPException(status_code=404, detail="Not Found")
 
 
 if __name__ == "__main__":
