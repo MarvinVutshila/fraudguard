@@ -25,7 +25,7 @@ async def get_transactions(
     try:
         svc = get_services()
         records = svc.storage_service.get_transactions(limit, offset, decision)
-        
+
         # Enrich records with override data
         result = []
         for rec in records:
@@ -33,16 +33,15 @@ async def get_transactions(
             if not tx_id:
                 logger.warning(f"Transaction record missing transaction_id: {rec}")
                 continue
-            
+
             override = svc.storage_service.get_override(tx_id)
             rec["overridden"] = override is not None
             rec["effective_decision"] = override["new_decision"] if override else rec.get("decision")
             rec["overridden_by"] = override["overridden_by"] if override else None
             result.append(rec)
-        
-        # Get total count (without limit/offset)
+
         total = svc.storage_service.count_transactions(decision)
-        
+
         return {
             "transactions": result,
             "total": total,
@@ -67,15 +66,15 @@ async def override_transaction(
         original = svc.storage_service.get_transaction(tx_id)
         if not original:
             raise HTTPException(status_code=404, detail="Transaction not found")
-        
+
         original_decision = original.get("decision")
         new_decision = req.new_decision
         reason = req.reason
         username = user.get("sub", "unknown")
-        
+
         # Save override history
         svc.storage_service.set_override(tx_id, original_decision, new_decision, username, reason)
-        
+
         # Update the transaction's decision and risk level
         risk_map = {
             'APPROVE': 'LOW',
@@ -84,7 +83,7 @@ async def override_transaction(
         }
         new_risk = risk_map.get(new_decision, 'MEDIUM')
         svc.storage_service.update_transaction_decision(tx_id, new_decision, new_risk)
-        
+
         return {
             "status": "ok",
             "new_decision": new_decision,
