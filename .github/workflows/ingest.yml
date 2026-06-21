@@ -25,6 +25,14 @@ jobs:
         run: |
           pip install pandas requests tqdm psycopg2-binary
 
+      - name: Restore state cache (fallback)
+        uses: actions/cache@v3
+        with:
+          path: ingest_state.json
+          key: ingest-state
+          restore-keys: |
+            ingest-state
+
       - name: Run ingestion script
         env:
           API_URL: https://fraudguard-434w.onrender.com/predict/batch
@@ -34,3 +42,9 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           python ingest_pipeline.py
+
+      - name: Save state cache (fallback)
+        uses: actions/cache@v3
+        with:
+          path: ingest_state.json
+          key: ingest-state
