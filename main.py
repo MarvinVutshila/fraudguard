@@ -1,4 +1,4 @@
-# main.py (final, with correct SPA fallback)
+# main.py (final, with correct SPA fallback AND static file serving)
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
@@ -79,11 +79,15 @@ if os.path.exists(assets_path):
     app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
     logger.info(f"Assets mounted from: {assets_path}")
 
-# 4. Catch‑all route: serve index.html for ANY other path
+# 4. Catch‑all route: serve static files or index.html
 @app.get("/{full_path:path}")
 async def serve_spa(request: Request, full_path: str):
-    # If the path starts with an API route, let the router handle it (already done)
-    # For everything else, serve index.html
+    # First, check if the requested file exists in the frontend folder
+    file_path = os.path.join(frontend_path, full_path)
+    if os.path.exists(file_path) and os.path.isfile(file_path):
+        return FileResponse(file_path)
+
+    # Otherwise, serve index.html for SPA routing
     index_path = os.path.join(frontend_path, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
