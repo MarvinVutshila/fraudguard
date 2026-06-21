@@ -14,7 +14,7 @@ export default function History() {
 
   const fetchHistory = async () => {
     try {
-      const res = await api.get('/transactions?limit=500');
+      const res = await api.get('/transactions?limit=1500');
       const data = res.data.transactions || [];
       const total = res.data.total || data.length;  // <-- get total from API
       setTransactions(data);
