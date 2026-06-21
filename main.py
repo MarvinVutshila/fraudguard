@@ -35,14 +35,9 @@ class LoginRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. Initialise the database connection pool (run ONCE at startup)
     logger.info("Initialising database connection pool...")
     init_db_pool(DB_DSN, min_conn=1, max_conn=10)
-
-    # 2. Create tables (if they don't exist)
     create_tables()
-
-    # 3. Create a SINGLE Database instance (no argument – uses global pool)
     db = Database()
 
     logger.info("Loading model artefacts…")
@@ -53,7 +48,6 @@ async def lifespan(app: FastAPI):
         block_threshold=BLOCK_THRESHOLD
     )
 
-    # 4. Pass the SAME db instance to StorageService
     storage_service = StorageService(db)
     prediction_service = PredictionService(artefacts, decision_service, storage_service)
 
@@ -69,33 +63,30 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Fraud Detection API", version="3.0.0", lifespan=lifespan)
 
-# Include API routers (this includes all endpoints from routes.py)
+# 1. Include API routers FIRST
 app.include_router(router)
 
-# ---------- Serve the Built Frontend ----------
+# 2. Determine frontend folder (dist or source)
 frontend_path = os.path.join(os.path.dirname(__file__), "frontend", "dist")
 if not os.path.exists(frontend_path):
     frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
 logger.info(f"Frontend path set to: {frontend_path}")
 
-# ---------- SPA Fallback Middleware ----------
-@app.middleware("http")
-async def spa_fallback(request: Request, call_next):
-    response = await call_next(request)
-    # If the response is a 404 and the request is not for an API route
-    if response.status_code == 404 and not request.url.path.startswith("/admin"):
-        # Check if the path is trying to load a file (e.g., .js, .css) – those should stay 404
-        if "." not in request.url.path.split("/")[-1]:
-            index_path = os.path.join(frontend_path, "index.html")
-            if os.path.exists(index_path):
-                return FileResponse(index_path)
-    return response
-
-# Mount static files (if the folder exists)
+# 3. Mount static files (this serves assets like .js, .css, images)
+#    The mount is done BEFORE the catch‑all, so static files are found first.
 if os.path.exists(frontend_path):
     app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
-else:
-    logger.warning(f"Frontend folder not found at {frontend_path}. API only mode.")
+
+# 4. Catch‑all route: serve index.html for any unmatched path
+#    This will only be reached if no API route or static file matches.
+@app.get("/{full_path:path}")
+async def serve_spa(request: Request, full_path: str):
+    # For security, skip if the path looks like an API endpoint (but API routes are already handled)
+    # Serve index.html for all other paths
+    index_path = os.path.join(frontend_path, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return HTTPException(status_code=404, detail="Not Found")
 
 
 if __name__ == "__main__":
