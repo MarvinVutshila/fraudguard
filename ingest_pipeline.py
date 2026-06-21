@@ -54,14 +54,11 @@ def ingest_csv():
         transactions = []
         for _, row in chunk.iterrows():
             tx = {
-                # 🔥 FIXED: Use capital 'A' to match backend
                 "Amount": float(row["Amount"]),
                 "Time": float(row.get("Time", 0)),
             }
-            # Add transaction_id if available
             if "transaction_id" in row and pd.notna(row["transaction_id"]):
                 tx["transaction_id"] = str(row["transaction_id"])
-            # Add V1..V28
             for v in range(1, 29):
                 col = f"V{v}"
                 tx[col] = float(row.get(col, 0.0))
