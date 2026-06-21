@@ -1,4 +1,5 @@
-# main.py (final, with connection pool and SPA fallback)
+# main.py (final, with correct SPA fallback)
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -66,30 +67,23 @@ app = FastAPI(title="Fraud Detection API", version="3.0.0", lifespan=lifespan)
 # 1. Include API routers FIRST
 app.include_router(router)
 
-# 2. Determine frontend folder (dist or source)
+# 2. Determine frontend folder
 frontend_path = os.path.join(os.path.dirname(__file__), "frontend", "dist")
 if not os.path.exists(frontend_path):
     frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
 logger.info(f"Frontend path set to: {frontend_path}")
 
-# 3. Catch‑all route for SPA – serves existing files and falls back to index.html
-@app.get("/{full_path:path}")
-async def serve_spa(full_path: str):
-    # If the path starts with an API prefix, it's already handled by the router
-    # But if it reaches here, it's not an API route.
-    # Build the file path
-    file_path = os.path.join(frontend_path, full_path)
-    if os.path.isfile(file_path):
-        return FileResponse(file_path)
-    # Otherwise, serve index.html (SPA fallback)
-    index_path = os.path.join(frontend_path, "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    raise HTTPException(status_code=404, detail="Not Found")
+# 3. Mount static assets (JS, CSS, images) under /assets
+assets_path = os.path.join(frontend_path, "assets")
+if os.path.exists(assets_path):
+    app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
+    logger.info(f"Assets mounted from: {assets_path}")
 
-# 4. Optional: handle root path explicitly (though catch‑all handles it)
-@app.get("/")
-async def root():
+# 4. Catch‑all route: serve index.html for ANY other path
+@app.get("/{full_path:path}")
+async def serve_spa(request: Request, full_path: str):
+    # If the path starts with an API route, let the router handle it (already done)
+    # For everything else, serve index.html
     index_path = os.path.join(frontend_path, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
