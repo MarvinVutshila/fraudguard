@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Request, Query
+from fastapi import APIRouter, HTTPException, Request
 from fraud_detection.schemas import TransactionRequest, PredictionResponse
 from fraud_detection.core.config import MAX_KNOWN_AMOUNT
 from fraud_detection.api.dependencies import get_services
@@ -29,26 +29,21 @@ def patch_xgboost_model(model):
 
 # ---------- Helper: convert SHAP output to frontend-friendly format ----------
 def convert_shap_to_frontend(explanation):
-    """Ensure feature_contributions is a list of dicts with float contributions."""
     if explanation is None:
         return None
     top_features = explanation.top_features
     contributions = explanation.feature_contributions
 
-    # Normalize contributions to a list of dicts {feature, contribution}
     if isinstance(contributions, np.ndarray):
         contributions = contributions.tolist()
     if isinstance(contributions, dict):
         contributions = [{"feature": k, "contribution": float(v)} for k, v in contributions.items()]
     elif isinstance(contributions, list):
-        # If it's a flat list of numbers, pair with top_features
         if len(contributions) == len(top_features) and all(isinstance(x, (int, float)) for x in contributions):
             contributions = [{"feature": top_features[i], "contribution": float(contributions[i])} for i in range(len(contributions))]
         elif all(isinstance(x, dict) for x in contributions):
-            # Ensure values are floats
             contributions = [{"feature": d.get("feature", ""), "contribution": float(d.get("contribution", 0.0))} for d in contributions]
         else:
-            # Fallback: treat as list of mixed types, try to convert
             contributions = [{"feature": str(i), "contribution": float(c) if isinstance(c, (int, float)) else 0.0} for i, c in enumerate(contributions)]
     else:
         contributions = []
@@ -77,46 +72,9 @@ async def predict(tx: TransactionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ---------- Single Prediction (GET) – for Predict page ----------
-@router.get("/predict", response_model=PredictionResponse)
-async def predict_get(
-    Amount: float = Query(0.0, description="Transaction amount"),  # default 0 to avoid missing field
-    Time: float = Query(0.0, description="Time since first transaction"),
-    V1: float = Query(0.0), V2: float = Query(0.0), V3: float = Query(0.0),
-    V4: float = Query(0.0), V5: float = Query(0.0), V6: float = Query(0.0),
-    V7: float = Query(0.0), V8: float = Query(0.0), V9: float = Query(0.0),
-    V10: float = Query(0.0), V11: float = Query(0.0), V12: float = Query(0.0),
-    V13: float = Query(0.0), V14: float = Query(0.0), V15: float = Query(0.0),
-    V16: float = Query(0.0), V17: float = Query(0.0), V18: float = Query(0.0),
-    V19: float = Query(0.0), V20: float = Query(0.0), V21: float = Query(0.0),
-    V22: float = Query(0.0), V23: float = Query(0.0), V24: float = Query(0.0),
-    V25: float = Query(0.0), V26: float = Query(0.0), V27: float = Query(0.0),
-    V28: float = Query(0.0),
-    transaction_id: str = Query(None, description="Optional transaction ID"),
-):
-    """GET endpoint for Predict page – uses query parameters."""
-    tx = TransactionRequest(
-        transaction_id=transaction_id,
-        Amount=Amount,
-        Time=Time,
-        V1=V1, V2=V2, V3=V3, V4=V4, V5=V5, V6=V6, V7=V7, V8=V8, V9=V9, V10=V10,
-        V11=V11, V12=V12, V13=V13, V14=V14, V15=V15, V16=V16, V17=V17, V18=V18,
-        V19=V19, V20=V20, V21=V21, V22=V22, V23=V23, V24=V24, V25=V25, V26=V26,
-        V27=V27, V28=V28,
-    )
-    # Reuse the POST logic
-    return await predict(tx)
-
-
 # ---------- Batch Prediction ----------
 @router.post("/predict/batch")
 async def predict_batch(request: Request):
-    """
-    Accepts either:
-      - JSON array: [ { "transaction_id": "...", "Amount": ..., "Time": ..., "V1": ... }, ... ]
-      - Object: { "transactions": [ ... ] }
-    Returns: { "results": [ { "transaction_id": ..., "amount": ..., "fraud_probability": ..., "decision": ..., "risk_level": ... } ] }
-    """
     try:
         raw = await request.json()
         logger.info(f"Batch payload type: {type(raw)}")
