@@ -2,8 +2,11 @@ name: Daily Data Ingestion
 
 on:
   schedule:
-    - cron: '15 18 * * *'   # Runs at 6:15 PM UTC daily
-  workflow_dispatch:         # Allows manual trigger
+    - cron: '25 22 * * *'   # 10:25 PM UTC
+    - cron: '25 4 * * *'    # 4:25 AM UTC
+    - cron: '25 10 * * *'   # 10:25 AM UTC
+    - cron: '25 16 * * *'   # 4:25 PM UTC
+  workflow_dispatch:         # Manual trigger
 
 jobs:
   ingest:
@@ -22,6 +25,15 @@ jobs:
         run: |
           pip install pandas requests tqdm
 
+      - name: Restore state cache
+        uses: actions/cache@v3
+        id: cache-state
+        with:
+          path: ingest_state.json
+          key: ingest-state-${{ github.run_id }}
+          restore-keys: |
+            ingest-state-
+
       - name: Run ingestion script
         env:
           API_URL: https://fraudguard-434w.onrender.com/predict/batch
@@ -30,3 +42,9 @@ jobs:
           CSV_FILE: data/simulation.csv
         run: |
           python ingest_pipeline.py
+
+      - name: Save state cache
+        uses: actions/cache@v3
+        with:
+          path: ingest_state.json
+          key: ingest-state-${{ github.run_id }}
