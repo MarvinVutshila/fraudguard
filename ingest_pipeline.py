@@ -52,13 +52,17 @@ def ingest_csv():
 
         chunk = df.iloc[i:end]
         transactions = []
-        for _, row in chunk.iterrows():
+        for idx, row in chunk.iterrows():
+            # Generate transaction_id if missing
+            tx_id = row.get("transaction_id") if "transaction_id" in row and pd.notna(row["transaction_id"]) else None
+            if tx_id is None:
+                # Use the row index to create a unique ID
+                tx_id = f"AUTO-{i + idx}"
             tx = {
+                "transaction_id": str(tx_id),
                 "Amount": float(row["Amount"]),
                 "Time": float(row.get("Time", 0)),
             }
-            if "transaction_id" in row and pd.notna(row["transaction_id"]):
-                tx["transaction_id"] = str(row["transaction_id"])
             for v in range(1, 29):
                 col = f"V{v}"
                 tx[col] = float(row.get(col, 0.0))
