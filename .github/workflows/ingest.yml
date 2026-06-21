@@ -2,10 +2,10 @@ name: Daily Data Ingestion
 
 on:
   schedule:
-    - cron: '29 23 * * *'   # 11:29 PM UTC
-    - cron: '29 5 * * *'    # 5:29 AM UTC
-    - cron: '29 11 * * *'   # 11:29 AM UTC
-    - cron: '29 17 * * *'   # 5:29 PM UTC
+    - cron: '33 23 * * *'   # 11:33 PM UTC
+    - cron: '33 5 * * *'    # 5:33 AM UTC
+    - cron: '33 11 * * *'   # 11:33 AM UTC
+    - cron: '33 17 * * *'   # 5:33 PM UTC
   workflow_dispatch:         # Manual trigger
 
 jobs:
