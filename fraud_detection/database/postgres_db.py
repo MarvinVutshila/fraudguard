@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     probability     REAL NOT NULL,
     decision        TEXT NOT NULL,
     risk_level      TEXT NOT NULL,
-    timestamp       TIMESTAMPTZ NOT NULL
+    timestamp       TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_txn_timestamp ON transactions (timestamp DESC);
 """
@@ -140,11 +140,11 @@ class Database:
     # ---- Transactions ----
     def insert_transaction(self, transaction_id: str, amount: float,
                            probability: float, decision: str,
-                           risk_level: str, timestamp) -> int:
+                           risk_level: str, timestamp: Optional[datetime] = None) -> int:
         sql = """
             INSERT INTO transactions (transaction_id, amount, probability,
                                       decision, risk_level, timestamp)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, COALESCE(%s, NOW()))
             RETURNING id;
         """
         with get_connection() as conn:
