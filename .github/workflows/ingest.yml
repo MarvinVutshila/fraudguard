@@ -23,15 +23,14 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pandas requests tqdm psycopg2-binary
+          pip install pandas requests tqdm
 
-      - name: Restore state cache (fallback)
-        uses: actions/cache@v3
+      - name: Download previous state (if exists)
+        uses: actions/download-artifact@v4
         with:
-          path: ingest_state.json
-          key: ingest-state
-          restore-keys: |
-            ingest-state
+          name: ingest-state
+          path: .
+        continue-on-error: true   # Don't fail if no previous artifact
 
       - name: Run ingestion script
         env:
@@ -39,12 +38,12 @@ jobs:
           BATCH_SIZE: 100
           DAILY_LIMIT: 100
           CSV_FILE: data/simulation.csv
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           python ingest_pipeline.py
 
-      - name: Save state cache (fallback)
-        uses: actions/cache@v3
+      - name: Upload updated state
+        uses: actions/upload-artifact@v4
         with:
+          name: ingest-state
           path: ingest_state.json
-          key: ingest-state
+          retention-days: 1
