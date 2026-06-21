@@ -2,16 +2,16 @@ name: Daily Data Ingestion
 
 on:
   schedule:
-    # All times are in UTC – adjust if you want a different local time
-    - cron: '36 11 * * *'   # 1:36 PM your time (11:36 UTC)
-    - cron: '36 17 * * *'   # 7:36 PM your time (17:36 UTC)
-    - cron: '36 23 * * *'   # 1:36 AM your time (23:36 UTC)
-    - cron: '36 5 * * *'    # 7:36 AM your time (5:36 UTC)
+    - cron: '36 11 * * *'   # 1:36 PM your time
+    - cron: '36 17 * * *'   # 7:36 PM your time
+    - cron: '36 23 * * *'   # 1:36 AM your time
+    - cron: '36 5 * * *'    # 7:36 AM your time
   workflow_dispatch:
 
 jobs:
   ingest:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,16 +23,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pandas requests tqdm
-
-      - name: Restore state cache
-        uses: actions/cache@v3
-        id: cache-state
-        with:
-          path: ingest_state.json
-          key: ingest-state  # <-- FIXED: persistent key
-          restore-keys: |
-            ingest-state
+          pip install pandas requests tqdm psycopg2-binary
 
       - name: Run ingestion script
         env:
@@ -40,11 +31,6 @@ jobs:
           BATCH_SIZE: 100
           DAILY_LIMIT: 100
           CSV_FILE: data/simulation.csv
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           python ingest_pipeline.py
-
-      - name: Save state cache
-        uses: actions/cache@v3
-        with:
-          path: ingest_state.json
-          key: ingest-state
