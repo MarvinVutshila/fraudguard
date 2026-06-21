@@ -4,32 +4,82 @@ import json
 import logging
 import pandas as pd
 import requests
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from datetime import datetime
 from tqdm import tqdm
 
+# ------------------------------------------------------------------
+# Configuration
+# ------------------------------------------------------------------
 API_URL = os.getenv("API_URL", "https://fraudguard-434w.onrender.com/predict/batch")
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", 100))
 DAILY_LIMIT = int(os.getenv("DAILY_LIMIT", 100))
 CSV_FILE = os.getenv("CSV_FILE", "data/simulation.csv")
-STATE_FILE = "ingest_state.json"
+DATABASE_URL = os.getenv("DATABASE_URL")
+STATE_KEY = "ingest_last_index"
+
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable not set")
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# ------------------------------------------------------------------
+# Database state helpers
+# ------------------------------------------------------------------
+def ensure_state_table():
+    """Create the pipeline_state table if it doesn't exist."""
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS pipeline_state (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+    """)
+    conn.commit()
+    cur.close()
+    conn.close()
+
 def load_state():
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, 'r') as f:
-            return json.load(f)
+    """Load the last processed index from the database."""
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM pipeline_state WHERE key = %s;", (STATE_KEY,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if row:
+        return {"last_index": int(row[0])}
     return {"last_index": 0}
 
 def save_state(state):
-    with open(STATE_FILE, 'w') as f:
-        json.dump(state, f)
+    """Save the last processed index to the database."""
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute(
+        """
+        INSERT INTO pipeline_state (key, value) VALUES (%s, %s)
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
+        """,
+        (STATE_KEY, str(state["last_index"]))
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
 
+# ------------------------------------------------------------------
+# Main ingestion
+# ------------------------------------------------------------------
 def ingest_csv():
+    ensure_state_table()
+
     if not os.path.exists(CSV_FILE):
         logger.error(f"CSV not found: {CSV_FILE}")
         return
+
     df = pd.read_csv(CSV_FILE)
     total = len(df)
     logger.info(f"Loaded {total} rows")
@@ -56,7 +106,6 @@ def ingest_csv():
             # Generate transaction_id if missing
             tx_id = row.get("transaction_id") if "transaction_id" in row and pd.notna(row["transaction_id"]) else None
             if tx_id is None:
-                # Use the row index to create a unique ID
                 tx_id = f"AUTO-{i + idx}"
             tx = {
                 "transaction_id": str(tx_id),
