@@ -2,10 +2,11 @@ name: Daily Data Ingestion
 
 on:
   schedule:
-    - cron: '36 11 * * *'   # 1:36 PM your time
-    - cron: '36 17 * * *'   # 7:36 PM your time
-    - cron: '36 23 * * *'   # 1:36 AM your time
-    - cron: '36 5 * * *'    # 7:36 AM your time
+    # All times are in UTC – adjust if you want a different local time
+    - cron: '36 11 * * *'   # 1:36 PM your time (11:36 UTC)
+    - cron: '36 17 * * *'   # 7:36 PM your time (17:36 UTC)
+    - cron: '36 23 * * *'   # 1:36 AM your time (23:36 UTC)
+    - cron: '36 5 * * *'    # 7:36 AM your time (5:36 UTC)
   workflow_dispatch:
 
 jobs:
@@ -29,9 +30,9 @@ jobs:
         id: cache-state
         with:
           path: ingest_state.json
-          key: ingest-state-${{ github.run_id }}
+          key: ingest-state  # <-- FIXED: persistent key
           restore-keys: |
-            ingest-state-
+            ingest-state
 
       - name: Run ingestion script
         env:
@@ -46,4 +47,4 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ingest_state.json
-          key: ingest-state-${{ github.run_id }}
+          key: ingest-state
