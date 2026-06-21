@@ -30,6 +30,7 @@ ChartJS.register(
 
 export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
+  const [totalTransactions, setTotalTransactions] = useState(0); // <-- NEW
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [decisionFilter, setDecisionFilter] = useState('');
@@ -42,8 +43,10 @@ export default function Dashboard() {
       const res = await api.get('/transactions?limit=200');
       console.log('[Dashboard] API response:', res.data);
       const data = res.data.transactions || [];
-      console.log('[Dashboard] transactions count:', data.length);
+      const total = res.data.total || data.length;
+      console.log('[Dashboard] transactions count:', data.length, 'total:', total);
       setTransactions(data);
+      setTotalTransactions(total); // <-- store the true total
     } catch (err) {
       console.error('[Dashboard] API error:', err);
     } finally {
@@ -133,7 +136,7 @@ export default function Dashboard() {
           <div>
             <div className="kpi-label">Today's Transactions</div>
             <div className="kpi-value">{todayTxs.length}</div>
-            <div className="kpi-delta">of {transactions.length} total</div>
+            <div className="kpi-delta">of {totalTransactions} total</div> {/* <-- CHANGED */}
           </div>
         </div>
         <div className="kpi-card">
@@ -141,7 +144,7 @@ export default function Dashboard() {
           <div>
             <div className="kpi-label">Blocked</div>
             <div className="kpi-value">{blocked}</div>
-            <div className="kpi-delta">{transactions.length ? ((blocked/transactions.length)*100).toFixed(1) : 0}% fraud rate</div>
+            <div className="kpi-delta">{totalTransactions ? ((blocked/totalTransactions)*100).toFixed(1) : 0}% fraud rate</div>
           </div>
         </div>
         <div className="kpi-card">
