@@ -38,7 +38,6 @@ CREATE TABLE IF NOT EXISTS transaction_overrides (
 );
 """
 
-# Added last_active column
 CREATE_USERS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS users (
     id              SERIAL PRIMARY KEY,
@@ -108,7 +107,6 @@ def create_tables() -> None:
     # If the table already existed and lacks last_active, add it
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # Check if last_active column exists
             cur.execute("""
                 SELECT column_name
                 FROM information_schema.columns
@@ -315,7 +313,6 @@ class Database:
         self.update_user_status(user_id, new_status)
 
     def get_all_users(self) -> List[Dict[str, Any]]:
-        """Fetch all users with last_active and created_at for admin panel."""
         sql = """
             SELECT id, username, role, status, avatar_url, last_active, created_at
             FROM users
@@ -328,7 +325,6 @@ class Database:
         return [dict(row) for row in rows]
 
     def update_last_active(self, username: str) -> None:
-        """Update the last_active timestamp for a user."""
         sql = "UPDATE users SET last_active = NOW() WHERE username = %s;"
         with get_connection() as conn:
             with conn.cursor() as cur:
