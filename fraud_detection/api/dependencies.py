@@ -1,7 +1,5 @@
 from fastapi import HTTPException, Depends
 from fraud_detection.api.auth import verify_token
-from fraud_detection.database.postgres_db import Database
-from typing import Optional
 
 _services = None
 
@@ -25,14 +23,7 @@ def get_current_user(payload: dict = Depends(verify_token)) -> UserContext:
     if not username:
         raise HTTPException(401, "Invalid token")
     
-    # Optional: update last_active for this user (safe way)
-    try:
-        db = Database()
-        db.update_last_active(username)   # username is a string ✅
-    except Exception:
-        # Log error but don't break the request
-        pass
-    
+    # last_active is already updated on login – no need to do it here
     return UserContext(username, role)
 
 def get_current_admin(current_user: UserContext = Depends(get_current_user)) -> UserContext:
