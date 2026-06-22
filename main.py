@@ -31,32 +31,42 @@ class LoginRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Initialising database connection pool...")
-    init_db_pool(DB_DSN, min_conn=1, max_conn=10)
-    create_tables()
-    db = Database()
+    try:
+        logger.info("Initialising database connection pool...")
+        init_db_pool(DB_DSN, min_conn=1, max_conn=10)
+        create_tables()
+        db = Database()
 
-    logger.info("Loading model artefacts…")
-    artefacts = load_artefacts(MODELS_DIR)
+        logger.info("Loading model artefacts…")
+        artefacts = load_artefacts(MODELS_DIR)
 
-    decision_service = DecisionService(
-        approve_threshold=APPROVE_THRESHOLD,
-        block_threshold=BLOCK_THRESHOLD
-    )
+        decision_service = DecisionService(
+            approve_threshold=APPROVE_THRESHOLD,
+            block_threshold=BLOCK_THRESHOLD
+        )
 
-    storage_service = StorageService(db)
-    prediction_service = PredictionService(artefacts, decision_service, storage_service)
+        storage_service = StorageService(db)
+        prediction_service = PredictionService(artefacts, decision_service, storage_service)
 
-    services.prediction_service = prediction_service
-    services.decision_service = decision_service
-    services.storage_service = storage_service
+        services.prediction_service = prediction_service
+        services.decision_service = decision_service
+        services.storage_service = storage_service
 
-    set_services(services)
+        set_services(services)
+        logger.info("Application startup complete.")
+    except Exception as e:
+        logger.error(f"Startup failed: {e}", exc_info=True)
+        raise  # Re-raise so the app exits with a clear error
 
     yield
     logger.info("Shutting down – database pool will be closed automatically")
 
 app = FastAPI(title="Fraud Detection API", version="3.0.0", lifespan=lifespan)
+
+# ---- Health check endpoint ----
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "message": "FraudGuard API is running"}
 
 # 1. Include API routers FIRST
 app.include_router(router)
@@ -73,7 +83,7 @@ if os.path.exists(assets_path):
     app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
     logger.info(f"Assets mounted from: {assets_path}")
 
-# 4. Middleware to track last_active
+# 4. Middleware to track last_active (with fallback)
 @app.middleware("http")
 async def track_last_active(request: Request, call_next):
     response = await call_next(request)
@@ -90,11 +100,14 @@ async def track_last_active(request: Request, call_next):
             payload = verify_token(token)
             username = payload.get("sub")
             if username:
-                # Update last_active in the database
                 db = Database()
-                db.update_last_active(username)
-        except Exception:
-            pass  # Silently ignore token errors
+                # Check if the method exists before calling it
+                if hasattr(db, 'update_last_active'):
+                    db.update_last_active(username)
+                else:
+                    logger.warning("update_last_active method not found in Database class – skipping")
+        except Exception as e:
+            logger.warning(f"Could not update last_active: {e}")
     return response
 
 # 5. Catch‑all route: serve static files or index.html
@@ -110,4 +123,6 @@ async def serve_spa(request: Request, full_path: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    import os
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
