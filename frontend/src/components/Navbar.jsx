@@ -1,9 +1,17 @@
 import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 
 export default function Navbar({ title, onRefresh }) {
   const navigate = useNavigate();
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      // Call the logout endpoint to record the event
+      await api.post('/auth/logout');
+    } catch (e) {
+      console.warn('Logout API call failed:', e);
+    }
+    // Remove token and redirect to login regardless
     localStorage.removeItem('fg_token');
     navigate('/login');
   };
@@ -16,7 +24,7 @@ export default function Navbar({ title, onRefresh }) {
       </div>
       <div className="navbar-right">
         <button className="icon-btn" onClick={onRefresh} title="Refresh">↺</button>
-        <button className="icon-btn" onClick={() => {/* toggle theme */}}>☀️</button>
+        <button className="icon-btn" onClick={() => { /* toggle theme */ }}>☀️</button>
         <div className="user-pill">
           <span className="user-avatar">👤</span>
           <span className="user-name">Analyst</span>
