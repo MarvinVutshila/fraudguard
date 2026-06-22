@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from fraud_detection.database.postgres_db import get_connection, Database
 from fraud_detection.api.dependencies import get_current_admin, get_services
 from psycopg2.extras import RealDictCursor
+from typing import Optional          # <-- FIX: import Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ class RoleUpdate(BaseModel):
     role: str
 
 class BlockRequest(BaseModel):
-    reason: Optional[str] = None
+    reason: Optional[str] = None      # Now Optional is defined
 
 # ---------- Test route ----------
 @router.get("/test")
@@ -69,7 +70,6 @@ async def block_user(user_id: int, block_data: BlockRequest, current_user=Depend
     if user['status'] == 'deleted':
         raise HTTPException(400, "Cannot block a deleted user")
     db.block_user(user_id, block_data.reason)
-    # Log activity
     db.log_user_activity(current_user.username, "block_user", {"target": user['username'], "reason": block_data.reason})
     return {"message": f"User {user_id} has been blocked"}
 
