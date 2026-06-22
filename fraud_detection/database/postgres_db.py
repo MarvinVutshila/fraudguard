@@ -12,7 +12,7 @@ from psycopg2.extras import RealDictCursor
 logger = logging.getLogger(__name__)
 
 # -------------------------------------------------------------------
-# SQL statements (run only once)
+# SQL statements
 # -------------------------------------------------------------------
 CREATE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS transactions (
@@ -49,7 +49,9 @@ CREATE TABLE IF NOT EXISTS users (
     failed_attempts INTEGER DEFAULT 0,
     lock_until      TIMESTAMPTZ,
     last_active     TIMESTAMPTZ,
-    created_at      TIMESTAMPTZ DEFAULT NOW()
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    blocked_reason  TEXT,
+    blocked_at      TIMESTAMPTZ
 );
 """
 
@@ -78,18 +80,16 @@ CREATE INDEX IF NOT EXISTS idx_user_activity_timestamp ON user_activity (timesta
 """
 
 # -------------------------------------------------------------------
-# Global connection pool (initialised once at startup)
+# Global connection pool
 # -------------------------------------------------------------------
 _pool: Optional[SimpleConnectionPool] = None
 _dsn: Optional[str] = None
-
 
 def init_db_pool(dsn: str, min_conn: int = 1, max_conn: int = 20) -> None:
     global _pool, _dsn
     _dsn = dsn
     _pool = SimpleConnectionPool(min_conn, max_conn, dsn=dsn)
     logger.info(f"Database pool created (min={min_conn}, max={max_conn})")
-
 
 def create_tables() -> None:
     if _pool is None:
@@ -104,21 +104,39 @@ def create_tables() -> None:
             cur.execute(CREATE_USER_ACTIVITY_TABLE_SQL)
         conn.commit()
 
-    # If the table already existed and lacks last_active, add it
+    # Add missing columns if they don't exist
     with get_connection() as conn:
         with conn.cursor() as cur:
+            # Check and add last_active (already handled earlier, but keep for safety)
             cur.execute("""
-                SELECT column_name
-                FROM information_schema.columns
+                SELECT column_name FROM information_schema.columns
                 WHERE table_name='users' AND column_name='last_active';
             """)
             if not cur.fetchone():
                 cur.execute("ALTER TABLE users ADD COLUMN last_active TIMESTAMPTZ;")
-                conn.commit()
-                logger.info("Added last_active column to users table.")
+                logger.info("Added last_active column.")
+
+            # Add blocked_reason
+            cur.execute("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name='users' AND column_name='blocked_reason';
+            """)
+            if not cur.fetchone():
+                cur.execute("ALTER TABLE users ADD COLUMN blocked_reason TEXT;")
+                logger.info("Added blocked_reason column.")
+
+            # Add blocked_at
+            cur.execute("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name='users' AND column_name='blocked_at';
+            """)
+            if not cur.fetchone():
+                cur.execute("ALTER TABLE users ADD COLUMN blocked_at TIMESTAMPTZ;")
+                logger.info("Added blocked_at column.")
+
+        conn.commit()
 
     logger.info("Database tables and indexes verified")
-
 
 @contextmanager
 def get_connection():
@@ -130,7 +148,6 @@ def get_connection():
     finally:
         _pool.putconn(conn)
 
-
 # -------------------------------------------------------------------
 # Database class
 # -------------------------------------------------------------------
@@ -139,7 +156,7 @@ class Database:
         if _pool is None:
             raise RuntimeError("Database pool not initialised. Call init_db_pool() first.")
 
-    # ---- Transactions ----
+    # ---- Transactions (unchanged) ----
     def insert_transaction(self, transaction_id: str, amount: float,
                            probability: float, decision: str,
                            risk_level: str, timestamp: Optional[datetime] = None) -> int:
@@ -264,7 +281,7 @@ class Database:
                 cur.execute(sql, (decision, risk_level, transaction_id))
             conn.commit()
 
-    # ---- Users ----
+    # ---- Users (updated) ----
     def create_user(self, username: str, password: str,
                     role: str = 'analyst', status: str = 'pending',
                     avatar_url: Optional[str] = None) -> int:
@@ -288,11 +305,49 @@ class Database:
                 row = cur.fetchone()
         return dict(row) if row else None
 
+    def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
+        sql = "SELECT * FROM users WHERE id = %s;"
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(sql, (user_id,))
+                row = cur.fetchone()
+        return dict(row) if row else None
+
     def update_user_status(self, user_id: int, new_status: str) -> None:
         sql = "UPDATE users SET status = %s WHERE id = %s;"
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, (new_status, user_id))
+            conn.commit()
+
+    def block_user(self, user_id: int, reason: Optional[str] = None) -> None:
+        sql = """
+            UPDATE users 
+            SET status = 'blocked', blocked_reason = %s, blocked_at = NOW() 
+            WHERE id = %s;
+        """
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (reason, user_id))
+            conn.commit()
+
+    def unblock_user(self, user_id: int) -> None:
+        sql = """
+            UPDATE users 
+            SET status = 'active', blocked_reason = NULL, blocked_at = NULL 
+            WHERE id = %s;
+        """
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (user_id,))
+            conn.commit()
+
+    def delete_user(self, user_id: int) -> None:
+        # Soft delete – set status to 'deleted'
+        sql = "UPDATE users SET status = 'deleted' WHERE id = %s;"
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (user_id,))
             conn.commit()
 
     def get_pending_users(self) -> List[Dict[str, Any]]:
@@ -314,7 +369,8 @@ class Database:
 
     def get_all_users(self) -> List[Dict[str, Any]]:
         sql = """
-            SELECT id, username, role, status, avatar_url, last_active, created_at
+            SELECT id, username, role, status, avatar_url, last_active, created_at,
+                   blocked_reason, blocked_at
             FROM users
             ORDER BY username;
         """
