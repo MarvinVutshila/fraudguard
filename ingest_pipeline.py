@@ -5,6 +5,7 @@ import logging
 import pandas as pd
 import requests
 import psycopg2
+from psycopg2.extras import RealDictCursor
 from datetime import datetime
 from tqdm import tqdm
 
@@ -13,81 +14,53 @@ BATCH_SIZE = int(os.getenv("BATCH_SIZE", 100))
 DAILY_LIMIT = int(os.getenv("DAILY_LIMIT", 100))
 CSV_FILE = os.getenv("CSV_FILE", "data/simulation.csv")
 DATABASE_URL = os.getenv("DATABASE_URL")
-STATE_FILE = "ingest_state.json"
-STATE_KEY = "ingest_last_index"
 
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable not set")
+
+STATE_KEY = "ingest_last_index"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# ------------------------------------------------------------------
-# Database helpers (with automatic table creation)
-# ------------------------------------------------------------------
+def get_db_connection():
+    return psycopg2.connect(DATABASE_URL)
+
 def ensure_state_table():
-    if not DATABASE_URL:
-        return
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS pipeline_state (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL,
-                updated_at TIMESTAMPTZ DEFAULT NOW()
-            );
-        """)
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS pipeline_state (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL,
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                );
+            """)
         conn.commit()
-        cur.close()
-        conn.close()
-        logger.debug("State table ensured.")
-    except Exception as e:
-        logger.warning(f"Could not create state table: {e}")
+    logger.info("State table ensured.")
 
 def load_state():
-    # Try database first
-    if DATABASE_URL:
-        try:
-            conn = psycopg2.connect(DATABASE_URL)
-            cur = conn.cursor()
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
             cur.execute("SELECT value FROM pipeline_state WHERE key = %s;", (STATE_KEY,))
             row = cur.fetchone()
-            cur.close()
-            conn.close()
-            if row:
-                return {"last_index": int(row[0])}
-        except Exception as e:
-            logger.warning(f"Database load failed: {e}, falling back to file")
-
-    # Fallback to file
-    if os.path.exists(STATE_FILE):
-        with open(STATE_FILE, 'r') as f:
-            return json.load(f)
+    if row:
+        last_index = int(row[0])
+        logger.info(f"Loaded last_index = {last_index} from database")
+        return {"last_index": last_index}
+    logger.info("No existing state found – starting from 0")
     return {"last_index": 0}
 
 def save_state(state):
-    # Try database first
-    if DATABASE_URL:
-        try:
-            conn = psycopg2.connect(DATABASE_URL)
-            cur = conn.cursor()
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
             cur.execute(
                 "INSERT INTO pipeline_state (key, value) VALUES (%s, %s) "
                 "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();",
                 (STATE_KEY, str(state["last_index"]))
             )
-            conn.commit()
-            cur.close()
-            conn.close()
-            return
-        except Exception as e:
-            logger.warning(f"Database save failed: {e}, falling back to file")
+        conn.commit()
+    logger.info(f"Saved last_index = {state['last_index']} to database")
 
-    # Fallback to file
-    with open(STATE_FILE, 'w') as f:
-        json.dump(state, f)
-
-# ------------------------------------------------------------------
-# Main ingestion
-# ------------------------------------------------------------------
 def ingest_csv():
     ensure_state_table()
 
