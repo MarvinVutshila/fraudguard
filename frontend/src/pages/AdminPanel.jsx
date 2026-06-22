@@ -3,43 +3,38 @@ import api from '../services/api';
 
 export default function AdminPanel() {
   const [pendingUsers, setPendingUsers] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
   const [loginLogs, setLoginLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAdminData = async () => {
     try {
-      const [usersRes, logsRes] = await Promise.all([
+      const [usersRes, logsRes, allUsersRes] = await Promise.all([
         api.get('/admin/users/pending'),
-        api.get('/admin/login-logs')
+        api.get('/admin/login-logs'),
+        api.get('/admin/users')  // New endpoint
       ]);
 
-      // Safely extract pending users
       const pending = Array.isArray(usersRes.data?.pending) ? usersRes.data.pending : [];
       setPendingUsers(pending);
 
-      // Safely extract login logs – handle various response formats
       let logs = [];
       if (logsRes.data) {
-        if (Array.isArray(logsRes.data)) {
-          logs = logsRes.data;
-        } else if (Array.isArray(logsRes.data.logs)) {
-          logs = logsRes.data.logs;
-        } else if (Array.isArray(logsRes.data.results)) {
-          logs = logsRes.data.results;
-        } else if (Array.isArray(logsRes.data.items)) {
-          logs = logsRes.data.items;
-        } else {
-          // If it's a single object, wrap it (but log a warning)
-          console.warn('Unexpected login logs format:', logsRes.data);
-          logs = [];
-        }
+        if (Array.isArray(logsRes.data)) logs = logsRes.data;
+        else if (Array.isArray(logsRes.data.logs)) logs = logsRes.data.logs;
+        else if (Array.isArray(logsRes.data.results)) logs = logsRes.data.results;
+        else if (Array.isArray(logsRes.data.items)) logs = logsRes.data.items;
+        else logs = [];
       }
       setLoginLogs(logs);
+
+      const allUsers = Array.isArray(allUsersRes.data?.users) ? allUsersRes.data.users : [];
+      setAllUsers(allUsers);
     } catch (err) {
       console.error('Failed to fetch admin data:', err);
-      // Set empty arrays on error
       setPendingUsers([]);
       setLoginLogs([]);
+      setAllUsers([]);
     } finally {
       setLoading(false);
     }
@@ -65,6 +60,7 @@ export default function AdminPanel() {
 
   return (
     <div>
+      {/* Pending user approvals */}
       <div className="card">
         <div className="card-header">
           <div>
@@ -94,6 +90,46 @@ export default function AdminPanel() {
         )}
       </div>
 
+      {/* All users with last_active */}
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <div className="card-title">👥 All Users</div>
+            <div className="card-sub">User accounts and last active times</div>
+          </div>
+          <button className="btn-secondary" onClick={fetchAdminData}>↺ Refresh</button>
+        </div>
+        <div className="table-scroll">
+          <table className="data-tbl">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Last Active</th>
+                <th>Created At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allUsers.length === 0 ? (
+                <tr><td colSpan="5" style={{textAlign:'center', padding:'1.5rem', color:'var(--text-muted)'}}>No users found</td></tr>
+              ) : (
+                allUsers.map(u => (
+                  <tr key={u.id}>
+                    <td><strong>{u.username}</strong></td>
+                    <td>{u.role || 'analyst'}</td>
+                    <td><span className={`status-badge ${u.status}`}>{u.status}</span></td>
+                    <td>{u.last_active ? new Date(u.last_active).toLocaleString() : '—'}</td>
+                    <td>{u.created_at ? new Date(u.created_at).toLocaleString() : '—'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Login logs */}
       <div className="card">
         <div className="card-header">
           <div>
