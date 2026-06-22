@@ -129,12 +129,12 @@ async def login(creds: LoginRequest, request: Request):
     except Exception as e:
         logger.error(f"Failed to log successful login for {creds.username}: {e}")
 
-    # Update last_active on successful login
+    # Update last_active on successful login – with enhanced logging
     try:
         db = Database()
         db.update_last_active(creds.username)
     except Exception as e:
-        logger.warning(f"Could not update last_active: {e}")
+        logger.warning(f"Could not update last_active for {creds.username}: {e}", exc_info=True)  # <-- added exc_info
 
     return {"access_token": token, "token_type": "bearer", "role": role}
 
