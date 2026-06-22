@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from fraud_detection.database.postgres_db import get_connection, Database
 from fraud_detection.api.dependencies import get_current_admin, get_services
-from psycopg2.extras import RealDictCursor  # <-- needed for dict cursor
+from psycopg2.extras import RealDictCursor
 import logging
 
 logger = logging.getLogger(__name__)
@@ -16,6 +16,9 @@ class UserApprove(BaseModel):
 
 class RoleUpdate(BaseModel):
     role: str
+
+class BlockRequest(BaseModel):
+    reason: Optional[str] = None
 
 # ---------- Test route ----------
 @router.get("/test")
@@ -40,7 +43,7 @@ async def approve_user(approval: UserApprove, current_user=Depends(get_current_a
         conn.commit()
     return {"message": f"User {approval.user_id} set to {new_status}"}
 
-# ---------- Update user role ----------
+# ---------- User role update ----------
 @router.patch("/users/{user_id}/role")
 async def update_user_role(user_id: int, update: RoleUpdate, current_user=Depends(get_current_admin)):
     valid_roles = ["admin", "analyst", "viewer"]
@@ -56,21 +59,60 @@ async def update_user_role(user_id: int, update: RoleUpdate, current_user=Depend
     
     return {"message": f"User {user_id} role updated to {update.role}"}
 
+# ---------- Block user ----------
+@router.post("/users/{user_id}/block")
+async def block_user(user_id: int, block_data: BlockRequest, current_user=Depends(get_current_admin)):
+    db = Database()
+    user = db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    if user['status'] == 'deleted':
+        raise HTTPException(400, "Cannot block a deleted user")
+    db.block_user(user_id, block_data.reason)
+    # Log activity
+    db.log_user_activity(current_user.username, "block_user", {"target": user['username'], "reason": block_data.reason})
+    return {"message": f"User {user_id} has been blocked"}
+
+# ---------- Unblock user ----------
+@router.post("/users/{user_id}/unblock")
+async def unblock_user(user_id: int, current_user=Depends(get_current_admin)):
+    db = Database()
+    user = db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    if user['status'] != 'blocked':
+        raise HTTPException(400, "User is not currently blocked")
+    db.unblock_user(user_id)
+    db.log_user_activity(current_user.username, "unblock_user", {"target": user['username']})
+    return {"message": f"User {user_id} has been unblocked"}
+
+# ---------- Delete user (soft delete) ----------
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: int, current_user=Depends(get_current_admin)):
+    db = Database()
+    user = db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    if user['status'] == 'deleted':
+        raise HTTPException(400, "User already deleted")
+    db.delete_user(user_id)
+    db.log_user_activity(current_user.username, "delete_user", {"target": user['username']})
+    return {"message": f"User {user_id} has been deleted"}
+
 # ---------- User activity (detailed) ----------
 @router.get("/users/{user_id}/activity")
 async def get_user_activity(user_id: int, current_user=Depends(get_current_admin)):
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Get user details
             cur.execute("""
-                SELECT id, username, role, status, avatar_url, last_active, created_at
+                SELECT id, username, role, status, avatar_url, last_active, created_at,
+                       blocked_reason, blocked_at
                 FROM users WHERE id = %s
             """, (user_id,))
             user = cur.fetchone()
             if not user:
                 raise HTTPException(404, "User not found")
             
-            # Count recent failed logins (last 24h)
             cur.execute("""
                 SELECT COUNT(*) FROM login_logs
                 WHERE username = %s AND success = false
@@ -78,7 +120,6 @@ async def get_user_activity(user_id: int, current_user=Depends(get_current_admin
             """, (user['username'],))
             user['recent_failed_logins'] = cur.fetchone()[0]
             
-            # User activity log (last 50)
             cur.execute("""
                 SELECT action, details, timestamp
                 FROM user_activity
@@ -88,7 +129,6 @@ async def get_user_activity(user_id: int, current_user=Depends(get_current_admin
             """, (user['username'],))
             activity = cur.fetchall()
             
-            # Login logs (last 50)
             cur.execute("""
                 SELECT success, ip, user_agent, timestamp
                 FROM login_logs
@@ -109,23 +149,18 @@ async def get_user_activity(user_id: int, current_user=Depends(get_current_admin
 async def get_dashboard_summary(current_user=Depends(get_current_admin)):
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # Total users
             cur.execute("SELECT COUNT(*) FROM users")
             total_users = cur.fetchone()[0]
             
-            # Active users
             cur.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
             active_users = cur.fetchone()[0]
             
-            # Pending approvals
             cur.execute("SELECT COUNT(*) FROM users WHERE status = 'pending'")
             pending_approvals = cur.fetchone()[0]
             
-            # Blocked users
             cur.execute("SELECT COUNT(*) FROM users WHERE status = 'blocked'")
             blocked_users = cur.fetchone()[0]
             
-            # High‑risk users (>5 failed logins in last hour)
             cur.execute("""
                 SELECT COUNT(DISTINCT username) FROM login_logs 
                 WHERE success = false 
@@ -136,7 +171,6 @@ async def get_dashboard_summary(current_user=Depends(get_current_admin)):
             high_risk_rows = cur.fetchall()
             high_risk_users = len(high_risk_rows) if high_risk_rows else 0
             
-            # Failed logins in last 24h
             cur.execute("""
                 SELECT COUNT(*) FROM login_logs 
                 WHERE success = false 
@@ -159,7 +193,6 @@ async def get_security_alerts(current_user=Depends(get_current_admin)):
     alerts = []
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # Brute force: >5 failed attempts in last 15 minutes
             cur.execute("""
                 SELECT username, COUNT(*) as attempts, MAX(timestamp) as last_attempt
                 FROM login_logs
@@ -261,12 +294,9 @@ async def bulk_approve(current_user=Depends(get_current_admin)):
         logger.error(f"Bulk approve failed: {e}", exc_info=True)
         raise HTTPException(500, "Bulk approve failed")
 
-# ---------- Get all users (with last_active) ----------
+# ---------- Get all users ----------
 @router.get("/users")
 async def get_all_users(current_user=Depends(get_current_admin)):
-    """
-    Fetch all users with their last_active and created_at timestamps.
-    """
     try:
         db = Database()
         users = db.get_all_users()
