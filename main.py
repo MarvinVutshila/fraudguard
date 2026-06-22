@@ -1,4 +1,4 @@
-# main.py (final, with correct SPA fallback AND static file serving)
+# main.py (final, with SPA fallback and activity tracking middleware)
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 import logging
 import os
 from pydantic import BaseModel
-
 from fraud_detection.core.config import MODELS_DIR, DB_DSN, LOG_LEVEL, APPROVE_THRESHOLD, BLOCK_THRESHOLD
 from fraud_detection.ml.inference.model_loader import load_artefacts
 from fraud_detection.application.services.prediction_service import PredictionService
@@ -21,18 +20,14 @@ from fraud_detection.api.auth import create_access_token
 logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
-
 class Services:
     pass
 
-
 services = Services()
-
 
 class LoginRequest(BaseModel):
     username: str
     password: str
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -61,7 +56,6 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("Shutting down – database pool will be closed automatically")
 
-
 app = FastAPI(title="Fraud Detection API", version="3.0.0", lifespan=lifespan)
 
 # 1. Include API routers FIRST
@@ -79,20 +73,40 @@ if os.path.exists(assets_path):
     app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
     logger.info(f"Assets mounted from: {assets_path}")
 
-# 4. Catch‑all route: serve static files or index.html
+# 4. Middleware to track last_active
+@app.middleware("http")
+async def track_last_active(request: Request, call_next):
+    response = await call_next(request)
+    # Skip public endpoints
+    public_paths = {"/auth/login", "/auth/register", "/health", "/", "/docs", "/openapi.json"}
+    if request.url.path in public_paths:
+        return response
+    # Check for Authorization header
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            from fraud_detection.api.auth import verify_token
+            payload = verify_token(token)
+            username = payload.get("sub")
+            if username:
+                # Update last_active in the database
+                db = Database()
+                db.update_last_active(username)
+        except Exception:
+            pass  # Silently ignore token errors
+    return response
+
+# 5. Catch‑all route: serve static files or index.html
 @app.get("/{full_path:path}")
 async def serve_spa(request: Request, full_path: str):
-    # First, check if the requested file exists in the frontend folder
     file_path = os.path.join(frontend_path, full_path)
     if os.path.exists(file_path) and os.path.isfile(file_path):
         return FileResponse(file_path)
-
-    # Otherwise, serve index.html for SPA routing
     index_path = os.path.join(frontend_path, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
     raise HTTPException(status_code=404, detail="Not Found")
-
 
 if __name__ == "__main__":
     import uvicorn
