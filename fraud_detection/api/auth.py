@@ -178,7 +178,6 @@ async def get_current_user_info(payload: dict = Depends(verify_token)):
         raise HTTPException(404, "User not found")
     return {"username": row[0], "role": row[1], "avatar_url": row[2], "status": row[3]}
 
-# ----- NEW: Logout endpoint -----
 @router.post("/logout")
 async def logout(payload: dict = Depends(verify_token)):
     """
