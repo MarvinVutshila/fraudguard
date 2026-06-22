@@ -20,14 +20,30 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor: handle 401
+// Response interceptor: handle 401 and 403 (blocked)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status;
+    const detail = error.response?.data?.detail || '';
+
+    // 401: Unauthorized → always redirect to login
+    if (status === 401) {
       localStorage.removeItem('fg_token');
       window.location.href = '/login';
+      return Promise.reject(error);
     }
+
+    // 403: Forbidden – check if it's because the account is blocked/rejected/pending
+    if (status === 403 && detail.includes('Account is')) {
+      // e.g., "Account is blocked. Access denied."
+      localStorage.removeItem('fg_token');
+      window.location.href = '/login';
+      return Promise.reject(error);
+    }
+
+    // For other 403 errors (e.g., "Admin access required"), just reject
+    // so the component can show a user-friendly message.
     return Promise.reject(error);
   }
 );
