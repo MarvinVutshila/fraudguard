@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from fraud_detection.database.postgres_db import get_connection
+from fraud_detection.database.postgres_db import get_connection, Database
 from fraud_detection.api.dependencies import get_current_admin, get_services
 import logging
 
@@ -47,11 +47,7 @@ async def get_login_logs(current_user=Depends(get_current_admin)):
 
 # ---- Override history ----
 @router.get("/overrides")
-async def get_overrides(
-    limit: int = 100,
-    current_user=Depends(get_current_admin)
-):
-    """Fetch transaction override history for the Approval Audit Log."""
+async def get_overrides(limit: int = 100, current_user=Depends(get_current_admin)):
     try:
         services = get_services()
         db = services.storage_service.db if services.storage_service else None
@@ -65,11 +61,7 @@ async def get_overrides(
 
 # ---- Single transaction override ----
 @router.post("/transactions/override")
-async def override_transaction(
-    request: Request,
-    current_user=Depends(get_current_admin)
-):
-    """Override a transaction decision and update the transaction itself."""
+async def override_transaction(request: Request, current_user=Depends(get_current_admin)):
     try:
         data = await request.json()
         transaction_id = data.get('transaction_id')
@@ -90,16 +82,9 @@ async def override_transaction(
             raise HTTPException(404, "Transaction not found")
 
         original_decision = tx.get('decision')
-
-        # Save override history
         storage.set_override(transaction_id, original_decision, new_decision, username, reason)
 
-        # Update the transaction's decision and risk level
-        risk_map = {
-            'APPROVE': 'LOW',
-            'BLOCK': 'HIGH',
-            'REVIEW': 'MEDIUM'
-        }
+        risk_map = {'APPROVE': 'LOW', 'BLOCK': 'HIGH', 'REVIEW': 'MEDIUM'}
         new_risk = risk_map.get(new_decision, 'MEDIUM')
         storage.update_transaction_decision(transaction_id, new_decision, new_risk)
 
@@ -110,10 +95,9 @@ async def override_transaction(
         logger.error(f"Error overriding transaction: {e}", exc_info=True)
         raise HTTPException(500, "Failed to override transaction")
 
-# ---- Bulk approve (optional, but useful for "Approve All") ----
+# ---- Bulk approve ----
 @router.post("/transactions/bulk-approve")
 async def bulk_approve(current_user=Depends(get_current_admin)):
-    """Approve all pending REVIEW transactions in one go."""
     try:
         services = get_services()
         storage = services.storage_service
@@ -130,3 +114,17 @@ async def bulk_approve(current_user=Depends(get_current_admin)):
     except Exception as e:
         logger.error(f"Bulk approve failed: {e}", exc_info=True)
         raise HTTPException(500, "Bulk approve failed")
+
+# ---- NEW: Get all users with last_active ----
+@router.get("/users")
+async def get_all_users(current_user=Depends(get_current_admin)):
+    """
+    Fetch all users with their last_active and created_at timestamps.
+    """
+    try:
+        db = Database()
+        users = db.get_all_users()
+        return {"users": users}
+    except Exception as e:
+        logger.error(f"Error fetching users: {e}", exc_info=True)
+        raise HTTPException(500, "Failed to fetch users")
