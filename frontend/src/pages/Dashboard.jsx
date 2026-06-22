@@ -30,7 +30,7 @@ ChartJS.register(
 
 export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
-  const [totalTransactions, setTotalTransactions] = useState(0); // <-- NEW
+  const [totalTransactions, setTotalTransactions] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [decisionFilter, setDecisionFilter] = useState('');
@@ -46,7 +46,7 @@ export default function Dashboard() {
       const total = res.data.total || data.length;
       console.log('[Dashboard] transactions count:', data.length, 'total:', total);
       setTransactions(data);
-      setTotalTransactions(total); // <-- store the true total
+      setTotalTransactions(total);
     } catch (err) {
       console.error('[Dashboard] API error:', err);
     } finally {
@@ -55,7 +55,6 @@ export default function Dashboard() {
     }
   };
 
-  // Auto-refresh & listen to navbar refresh event
   useEffect(() => {
     fetchData();
     intervalRef.current = setInterval(fetchData, 30000);
@@ -67,8 +66,16 @@ export default function Dashboard() {
     };
   }, []);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const todayTxs = transactions.filter(tx => (tx.timestamp || '').startsWith(today));
+  // ─── FIX: Use local time for "today" ──────────────────────────────
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const todayTxs = transactions.filter(tx => {
+    const d = new Date(tx.timestamp);
+    return d >= todayStart;
+  });
+
+  // ─── Everything else unchanged ──────────────────────────────────────
   const blocked = transactions.filter(tx => tx.decision === 'BLOCK').length;
   const review = transactions.filter(tx => tx.decision === 'REVIEW' && !tx.overridden).length;
   const avgRisk = transactions.length
@@ -136,7 +143,7 @@ export default function Dashboard() {
           <div>
             <div className="kpi-label">Today's Transactions</div>
             <div className="kpi-value">{todayTxs.length}</div>
-            <div className="kpi-delta">of {totalTransactions} total</div> {/* <-- CHANGED */}
+            <div className="kpi-delta">of {totalTransactions} total</div>
           </div>
         </div>
         <div className="kpi-card">
