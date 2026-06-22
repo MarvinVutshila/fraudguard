@@ -2,22 +2,27 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from fraud_detection.database.postgres_db import get_connection, Database
 from fraud_detection.api.dependencies import get_current_admin, get_services
+from psycopg2.extras import RealDictCursor  # <-- needed for dict cursor
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+# ---------- Pydantic models ----------
 class UserApprove(BaseModel):
     user_id: int
     approve: bool
 
-# ---- Test route ----
+class RoleUpdate(BaseModel):
+    role: str
+
+# ---------- Test route ----------
 @router.get("/test")
 async def test_route():
     return {"message": "Admin router works!"}
 
-# ---- User approval endpoints ----
+# ---------- User approval endpoints ----------
 @router.get("/users/pending")
 async def get_pending_users(current_user=Depends(get_current_admin)):
     with get_connection() as conn:
@@ -35,7 +40,148 @@ async def approve_user(approval: UserApprove, current_user=Depends(get_current_a
         conn.commit()
     return {"message": f"User {approval.user_id} set to {new_status}"}
 
-# ---- Login logs ----
+# ---------- Update user role ----------
+@router.patch("/users/{user_id}/role")
+async def update_user_role(user_id: int, update: RoleUpdate, current_user=Depends(get_current_admin)):
+    valid_roles = ["admin", "analyst", "viewer"]
+    if update.role not in valid_roles:
+        raise HTTPException(400, f"Invalid role. Must be one of: {', '.join(valid_roles)}")
+    
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET role = %s WHERE id = %s RETURNING id", (update.role, user_id))
+            if not cur.fetchone():
+                raise HTTPException(404, "User not found")
+        conn.commit()
+    
+    return {"message": f"User {user_id} role updated to {update.role}"}
+
+# ---------- User activity (detailed) ----------
+@router.get("/users/{user_id}/activity")
+async def get_user_activity(user_id: int, current_user=Depends(get_current_admin)):
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Get user details
+            cur.execute("""
+                SELECT id, username, role, status, avatar_url, last_active, created_at
+                FROM users WHERE id = %s
+            """, (user_id,))
+            user = cur.fetchone()
+            if not user:
+                raise HTTPException(404, "User not found")
+            
+            # Count recent failed logins (last 24h)
+            cur.execute("""
+                SELECT COUNT(*) FROM login_logs
+                WHERE username = %s AND success = false
+                AND timestamp > NOW() - INTERVAL '24 hours'
+            """, (user['username'],))
+            user['recent_failed_logins'] = cur.fetchone()[0]
+            
+            # User activity log (last 50)
+            cur.execute("""
+                SELECT action, details, timestamp
+                FROM user_activity
+                WHERE username = %s
+                ORDER BY timestamp DESC
+                LIMIT 50
+            """, (user['username'],))
+            activity = cur.fetchall()
+            
+            # Login logs (last 50)
+            cur.execute("""
+                SELECT success, ip, user_agent, timestamp
+                FROM login_logs
+                WHERE username = %s
+                ORDER BY timestamp DESC
+                LIMIT 50
+            """, (user['username'],))
+            login_logs = cur.fetchall()
+    
+    return {
+        "user": dict(user),
+        "activity": [dict(row) for row in activity],
+        "login_logs": [dict(row) for row in login_logs],
+    }
+
+# ---------- Dashboard summary ----------
+@router.get("/dashboard/summary")
+async def get_dashboard_summary(current_user=Depends(get_current_admin)):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Total users
+            cur.execute("SELECT COUNT(*) FROM users")
+            total_users = cur.fetchone()[0]
+            
+            # Active users
+            cur.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
+            active_users = cur.fetchone()[0]
+            
+            # Pending approvals
+            cur.execute("SELECT COUNT(*) FROM users WHERE status = 'pending'")
+            pending_approvals = cur.fetchone()[0]
+            
+            # Blocked users
+            cur.execute("SELECT COUNT(*) FROM users WHERE status = 'blocked'")
+            blocked_users = cur.fetchone()[0]
+            
+            # High‑risk users (>5 failed logins in last hour)
+            cur.execute("""
+                SELECT COUNT(DISTINCT username) FROM login_logs 
+                WHERE success = false 
+                AND timestamp > NOW() - INTERVAL '1 hour'
+                GROUP BY username
+                HAVING COUNT(*) > 5
+            """)
+            high_risk_rows = cur.fetchall()
+            high_risk_users = len(high_risk_rows) if high_risk_rows else 0
+            
+            # Failed logins in last 24h
+            cur.execute("""
+                SELECT COUNT(*) FROM login_logs 
+                WHERE success = false 
+                AND timestamp > NOW() - INTERVAL '24 hours'
+            """)
+            failed_logins_24h = cur.fetchone()[0]
+    
+    return {
+        "total_users": total_users,
+        "active_users": active_users,
+        "pending_approvals": pending_approvals,
+        "blocked_users": blocked_users,
+        "high_risk_users": high_risk_users,
+        "failed_logins_24h": failed_logins_24h,
+    }
+
+# ---------- Security alerts ----------
+@router.get("/security/alerts")
+async def get_security_alerts(current_user=Depends(get_current_admin)):
+    alerts = []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Brute force: >5 failed attempts in last 15 minutes
+            cur.execute("""
+                SELECT username, COUNT(*) as attempts, MAX(timestamp) as last_attempt
+                FROM login_logs
+                WHERE success = false
+                AND timestamp > NOW() - INTERVAL '15 minutes'
+                GROUP BY username
+                HAVING COUNT(*) > 5
+                ORDER BY last_attempt DESC
+            """)
+            brute_force = cur.fetchall()
+            for row in brute_force:
+                alerts.append({
+                    "id": f"bf-{row[0]}",
+                    "type": "brute_force",
+                    "severity": "high",
+                    "username": row[0],
+                    "message": f"{row[1]} failed login attempts in 15 minutes",
+                    "timestamp": row[2].isoformat() if row[2] else None,
+                })
+    return {"alerts": alerts}
+
+# ---------- Login logs ----------
 @router.get("/login-logs")
 async def get_login_logs(current_user=Depends(get_current_admin)):
     with get_connection() as conn:
@@ -45,7 +191,7 @@ async def get_login_logs(current_user=Depends(get_current_admin)):
     logs = [{"username": r[0], "success": r[1], "ip": r[2], "user_agent": r[3], "timestamp": r[4]} for r in rows]
     return logs
 
-# ---- Override history ----
+# ---------- Override history ----------
 @router.get("/overrides")
 async def get_overrides(limit: int = 100, current_user=Depends(get_current_admin)):
     try:
@@ -59,7 +205,7 @@ async def get_overrides(limit: int = 100, current_user=Depends(get_current_admin
         logger.error(f"Error fetching overrides: {e}", exc_info=True)
         raise HTTPException(500, "Failed to fetch override history")
 
-# ---- Single transaction override ----
+# ---------- Single transaction override ----------
 @router.post("/transactions/override")
 async def override_transaction(request: Request, current_user=Depends(get_current_admin)):
     try:
@@ -95,7 +241,7 @@ async def override_transaction(request: Request, current_user=Depends(get_curren
         logger.error(f"Error overriding transaction: {e}", exc_info=True)
         raise HTTPException(500, "Failed to override transaction")
 
-# ---- Bulk approve ----
+# ---------- Bulk approve ----------
 @router.post("/transactions/bulk-approve")
 async def bulk_approve(current_user=Depends(get_current_admin)):
     try:
@@ -115,7 +261,7 @@ async def bulk_approve(current_user=Depends(get_current_admin)):
         logger.error(f"Bulk approve failed: {e}", exc_info=True)
         raise HTTPException(500, "Bulk approve failed")
 
-# ---- Get all users with last_active ----
+# ---------- Get all users (with last_active) ----------
 @router.get("/users")
 async def get_all_users(current_user=Depends(get_current_admin)):
     """
