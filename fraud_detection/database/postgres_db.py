@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS transaction_overrides (
 );
 """
 
+# Added last_active column
 CREATE_USERS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS users (
     id              SERIAL PRIMARY KEY,
@@ -48,6 +49,7 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url      TEXT,
     failed_attempts INTEGER DEFAULT 0,
     lock_until      TIMESTAMPTZ,
+    last_active     TIMESTAMPTZ,
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 """
@@ -84,7 +86,6 @@ _dsn: Optional[str] = None
 
 
 def init_db_pool(dsn: str, min_conn: int = 1, max_conn: int = 20) -> None:
-    """Call this ONCE when your application starts."""
     global _pool, _dsn
     _dsn = dsn
     _pool = SimpleConnectionPool(min_conn, max_conn, dsn=dsn)
@@ -92,7 +93,6 @@ def init_db_pool(dsn: str, min_conn: int = 1, max_conn: int = 20) -> None:
 
 
 def create_tables() -> None:
-    """Run table creation – call once at startup after init_db_pool()."""
     if _pool is None:
         raise RuntimeError("Database pool not initialised. Call init_db_pool() first.")
 
@@ -104,18 +104,28 @@ def create_tables() -> None:
             cur.execute(CREATE_LOGIN_LOGS_TABLE_SQL)
             cur.execute(CREATE_USER_ACTIVITY_TABLE_SQL)
         conn.commit()
+
+    # If the table already existed and lacks last_active, add it
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Check if last_active column exists
+            cur.execute("""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name='users' AND column_name='last_active';
+            """)
+            if not cur.fetchone():
+                cur.execute("ALTER TABLE users ADD COLUMN last_active TIMESTAMPTZ;")
+                conn.commit()
+                logger.info("Added last_active column to users table.")
+
     logger.info("Database tables and indexes verified")
 
 
 @contextmanager
 def get_connection():
-    """
-    Context manager that returns a connection from the pool.
-    The connection is automatically returned to the pool when the block exits.
-    """
     if _pool is None:
         raise RuntimeError("Database pool not initialised. Call init_db_pool() first.")
-
     conn = _pool.getconn()
     try:
         yield conn
@@ -124,16 +134,10 @@ def get_connection():
 
 
 # -------------------------------------------------------------------
-# Database class – uses the pool internally, no per-query overhead
+# Database class
 # -------------------------------------------------------------------
 class Database:
-    """
-    Main database accessor. Reuses the global connection pool.
-    Do NOT create a new instance per request – create ONE global instance.
-    """
-
     def __init__(self) -> None:
-        """No DDL here – tables must already exist."""
         if _pool is None:
             raise RuntimeError("Database pool not initialised. Call init_db_pool() first.")
 
@@ -172,7 +176,6 @@ class Database:
                 LIMIT %s OFFSET %s;
             """
             params = (limit, offset)
-
         with get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(sql, params)
@@ -186,7 +189,6 @@ class Database:
         else:
             sql = "SELECT COUNT(*) FROM transactions;"
             params = ()
-
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
@@ -213,7 +215,6 @@ class Database:
                 row = cur.fetchone()
         return dict(row) if row else None
 
-    # ---- FIXED: set_override preserves original_decision ----
     def set_override(self, transaction_id: str, original_decision: str,
                      new_decision: str, overridden_by: str, reason: str) -> None:
         sql = """
@@ -232,9 +233,7 @@ class Database:
                                   overridden_by, reason))
             conn.commit()
 
-    # ---- FIXED: Get all overrides with transaction details for audit log ----
     def get_all_overrides(self, limit: int = 100) -> List[Dict[str, Any]]:
-        """Fetch override history with transaction details for the Approval Audit Log."""
         sql = """
             SELECT 
                 o.transaction_id,
@@ -256,7 +255,6 @@ class Database:
                 rows = cur.fetchall()
         return [dict(row) for row in rows]
 
-    # ---- FIXED: Update transaction decision and risk level ----
     def update_transaction_decision(self, transaction_id: str, decision: str, risk_level: str) -> None:
         sql = """
             UPDATE transactions
@@ -268,13 +266,13 @@ class Database:
                 cur.execute(sql, (decision, risk_level, transaction_id))
             conn.commit()
 
-    # ---- Users (aligned with auth.py) ----
+    # ---- Users ----
     def create_user(self, username: str, password: str,
                     role: str = 'analyst', status: str = 'pending',
                     avatar_url: Optional[str] = None) -> int:
         sql = """
-            INSERT INTO users (username, password, role, status, avatar_url)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO users (username, password, role, status, avatar_url, last_active)
+            VALUES (%s, %s, %s, %s, %s, NOW())
             RETURNING id;
         """
         with get_connection() as conn:
@@ -300,7 +298,6 @@ class Database:
             conn.commit()
 
     def get_pending_users(self) -> List[Dict[str, Any]]:
-        """Fetch all users with status = 'pending' for admin approval."""
         sql = """
             SELECT id, username, role, avatar_url, created_at
             FROM users
@@ -314,9 +311,29 @@ class Database:
         return [dict(row) for row in rows]
 
     def approve_user(self, user_id: int, approve: bool) -> None:
-        """Approve or reject a pending user."""
         new_status = "active" if approve else "rejected"
         self.update_user_status(user_id, new_status)
+
+    def get_all_users(self) -> List[Dict[str, Any]]:
+        """Fetch all users with last_active and created_at for admin panel."""
+        sql = """
+            SELECT id, username, role, status, avatar_url, last_active, created_at
+            FROM users
+            ORDER BY username;
+        """
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(sql)
+                rows = cur.fetchall()
+        return [dict(row) for row in rows]
+
+    def update_last_active(self, username: str) -> None:
+        """Update the last_active timestamp for a user."""
+        sql = "UPDATE users SET last_active = NOW() WHERE username = %s;"
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (username,))
+            conn.commit()
 
     # ---- Login logs ----
     def log_login_attempt(self, username: str, success: bool,
@@ -376,7 +393,6 @@ class Database:
                 LIMIT %s;
             """
             params = (limit,)
-
         with get_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(sql, params)
