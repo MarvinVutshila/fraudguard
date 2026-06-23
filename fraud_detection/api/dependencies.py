@@ -32,11 +32,9 @@ def get_current_user(payload: dict = Depends(verify_token)) -> UserContext:
         raise HTTPException(401, "User not found")
     
     # If user is blocked, rejected, or deleted, deny access
-    if user['status'] not in ['active', 'pending']:  # pending can be allowed to access? typically pending shouldn't login, but they can't login anyway
-        # For active session, if status is blocked/rejected/deleted, reject
+    if user['status'] not in ['active', 'pending']:
         raise HTTPException(403, detail=f"Account is {user['status']}. Access denied.")
     
-    # Optional: update last_active? Already done on login, maybe not needed.
     return UserContext(username, role, user['status'])
 
 def get_current_admin(current_user: UserContext = Depends(get_current_user)) -> UserContext:
