@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from fraud_detection.api.dependencies import get_services, verify_token
+from fraud_detection.api.dependencies import get_services, verify_token, get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ async def get_transactions(
 ):
     """
     Fetch transactions with override information.
+    ✅ FIX: Now accessible to all authenticated users (analysts + admins)
     """
     try:
         # Normalize decision: treat empty string or 'All' as None
@@ -60,6 +61,7 @@ async def get_transactions(
         logger.error(f"Error in /transactions: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
+
 @router.post("/transactions/{tx_id}/override")
 async def override_transaction(
     tx_id: str,
@@ -68,6 +70,7 @@ async def override_transaction(
 ):
     """
     Override a transaction decision and update the transaction itself.
+    ✅ FIX: Now accessible to all authenticated users (analysts + admins)
     """
     try:
         svc = get_services()
