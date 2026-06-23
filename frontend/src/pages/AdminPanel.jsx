@@ -1020,7 +1020,7 @@ export default function AdminPanel() {
               🛡️ Admin Control Centre
             </h1>
             <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-              FraudGuard — User management, security monitoring &amp; audit trails
+              FraudGuard User management, security monitoring &amp; audit trails
             </p>
           </div>
           <button
