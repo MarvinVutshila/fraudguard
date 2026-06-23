@@ -83,10 +83,13 @@ export default function Login() {
               <span className="brand-tagline">Banking Intelligence Platform</span>
             </div>
           </div>
-          <div className="hero-text">
+          
+          {/* ✅ FIX: Added margin-top to push text down */}
+          <div className="hero-text" style={{ marginTop: '40px' }}>
             <h2>Real‑time fraud<br /><span>detection at scale.</span></h2>
             <p>Monitor every transaction, flag suspicious activity with XGBoost ML, and route borderline cases to human analysts.</p>
           </div>
+          
           <div className="stats-grid">
             <div className="stat-item">
               <span className="stat-number">99.8%</span>
