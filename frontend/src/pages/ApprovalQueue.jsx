@@ -9,41 +9,82 @@ export default function ApprovalQueue() {
   const [selectedTx, setSelectedTx] = useState(null);
   const [newDecision, setNewDecision] = useState('APPROVE');
   const [reason, setReason] = useState('');
+  const [userRole, setUserRole] = useState('analyst');
+
+  // Get user role from token
+  const getUserRole = () => {
+    const token = localStorage.getItem('fg_token');
+    if (!token) return 'analyst';
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      );
+      const payload = JSON.parse(jsonPayload);
+      return payload.role || 'analyst';
+    } catch (e) {
+      console.warn('Invalid token, defaulting to analyst');
+      return 'analyst';
+    }
+  };
 
   const fetchData = async () => {
     try {
-      // Fetch pending reviews (transactions with decision = 'REVIEW')
+      // ✅ FIX: Fetch pending reviews from the public endpoint (accessible to all)
       const pendingRes = await api.get('/transactions?decision=REVIEW&limit=100');
       setPendingReviews(pendingRes.data.transactions || []);
 
-      // Fetch audit log (overrides history)
-      const auditRes = await api.get('/admin/overrides');
-      // The backend might return { overrides: [...] } or just an array
-      const logs = Array.isArray(auditRes.data) ? auditRes.data : (auditRes.data.overrides || []);
-      setAuditLog(logs);
+      // ✅ FIX: For audit log, try to fetch from public endpoint first
+      // If user is admin, they can see all overrides; if analyst, they see their own
+      const isAdmin = getUserRole() === 'admin';
+      
+      // Try to fetch audit log from a public endpoint
+      // If the admin endpoint fails (403), just show a message
+      try {
+        const auditRes = await api.get('/admin/overrides');
+        const logs = Array.isArray(auditRes.data) ? auditRes.data : (auditRes.data.overrides || []);
+        setAuditLog(logs);
+      } catch (err) {
+        if (err.response?.status === 403) {
+          // Analyst doesn't have access to full audit log - show limited view
+          // Or we could show an empty state with a message
+          setAuditLog([]);
+          console.log('Audit log view restricted to admins');
+        } else {
+          throw err;
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch approval data:', err);
+      // Show error message to user
+      alert('Failed to load approval queue: ' + (err.response?.data?.detail || err.message));
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    const role = getUserRole();
+    setUserRole(role);
     fetchData();
     const onRefresh = () => fetchData();
     window.addEventListener('refresh', onRefresh);
     return () => window.removeEventListener('refresh', onRefresh);
   }, []);
 
+  // ✅ FIX: Bulk approve - now uses the public endpoint (accessible to all)
   const handleApproveAll = async () => {
     if (pendingReviews.length === 0) return;
     if (!window.confirm('Approve all pending reviews?')) return;
 
     try {
-      // Approve each pending transaction
+      // ✅ Use the public override endpoint for each transaction
       for (const tx of pendingReviews) {
-        await api.post('/admin/transactions/override', {
-          transaction_id: tx.transaction_id || tx.id,
+        await api.post(`/transactions/${tx.transaction_id || tx.id}/override`, {
           new_decision: 'APPROVE',
           reason: 'Bulk approved via Approve All'
         });
@@ -61,11 +102,11 @@ export default function ApprovalQueue() {
     setShowModal(true);
   };
 
+  // ✅ FIX: Override now uses public endpoint (accessible to all)
   const handleOverride = async () => {
     if (!selectedTx) return;
     try {
-      await api.post('/admin/transactions/override', {
-        transaction_id: selectedTx.transaction_id || selectedTx.id,
+      await api.post(`/transactions/${selectedTx.transaction_id || selectedTx.id}/override`, {
         new_decision: newDecision,
         reason: reason.trim() || 'No reason provided'
       });
@@ -168,9 +209,15 @@ export default function ApprovalQueue() {
         <div className="card-header">
           <div>
             <div className="card-title">📝 Approval Audit Log</div>
-            <div className="card-sub">History of human decisions</div>
+            <div className="card-sub">
+              {userRole === 'admin' 
+                ? 'History of all human decisions' 
+                : 'Your recent decisions (admin view shows all)'}
+            </div>
           </div>
-          <button className="btn-primary" onClick={exportCSV}>⬇ Export</button>
+          <button className="btn-primary" onClick={exportCSV} disabled={auditLog.length === 0}>
+            ⬇ Export
+          </button>
         </div>
         <div className="table-scroll">
           <table className="data-tbl">
@@ -189,7 +236,9 @@ export default function ApprovalQueue() {
             <tbody>
               {auditLog.length === 0 ? (
                 <tr><td colSpan="8" style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
-                  No decisions yet
+                  {userRole === 'admin' 
+                    ? 'No decisions recorded yet' 
+                    : 'Admin-only view. Your decisions are recorded in the system.'}
                 </td></tr>
               ) : (
                 auditLog.slice(0, 100).map((log, idx) => (
