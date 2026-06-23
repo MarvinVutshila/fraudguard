@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from fraud_detection.database.postgres_db import get_connection, Database
 from fraud_detection.api.dependencies import get_current_admin, get_services
 from psycopg2.extras import RealDictCursor
-from typing import Optional          # <-- FIX: import Optional
+from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,14 +19,14 @@ class RoleUpdate(BaseModel):
     role: str
 
 class BlockRequest(BaseModel):
-    reason: Optional[str] = None      # Now Optional is defined
+    reason: Optional[str] = None
 
 # ---------- Test route ----------
 @router.get("/test")
 async def test_route():
     return {"message": "Admin router works!"}
 
-# ---------- User approval endpoints ----------
+# ---------- User approval endpoints (ADMIN ONLY) ----------
 @router.get("/users/pending")
 async def get_pending_users(current_user=Depends(get_current_admin)):
     with get_connection() as conn:
@@ -44,7 +44,7 @@ async def approve_user(approval: UserApprove, current_user=Depends(get_current_a
         conn.commit()
     return {"message": f"User {approval.user_id} set to {new_status}"}
 
-# ---------- User role update ----------
+# ---------- User role update (ADMIN ONLY) ----------
 @router.patch("/users/{user_id}/role")
 async def update_user_role(user_id: int, update: RoleUpdate, current_user=Depends(get_current_admin)):
     valid_roles = ["admin", "analyst", "viewer"]
@@ -60,7 +60,7 @@ async def update_user_role(user_id: int, update: RoleUpdate, current_user=Depend
     
     return {"message": f"User {user_id} role updated to {update.role}"}
 
-# ---------- Block user ----------
+# ---------- Block user (ADMIN ONLY) ----------
 @router.post("/users/{user_id}/block")
 async def block_user(user_id: int, block_data: BlockRequest, current_user=Depends(get_current_admin)):
     db = Database()
@@ -73,7 +73,7 @@ async def block_user(user_id: int, block_data: BlockRequest, current_user=Depend
     db.log_user_activity(current_user.username, "block_user", {"target": user['username'], "reason": block_data.reason})
     return {"message": f"User {user_id} has been blocked"}
 
-# ---------- Unblock user ----------
+# ---------- Unblock user (ADMIN ONLY) ----------
 @router.post("/users/{user_id}/unblock")
 async def unblock_user(user_id: int, current_user=Depends(get_current_admin)):
     db = Database()
@@ -86,7 +86,7 @@ async def unblock_user(user_id: int, current_user=Depends(get_current_admin)):
     db.log_user_activity(current_user.username, "unblock_user", {"target": user['username']})
     return {"message": f"User {user_id} has been unblocked"}
 
-# ---------- Delete user (soft delete) ----------
+# ---------- Delete user (ADMIN ONLY) ----------
 @router.delete("/users/{user_id}")
 async def delete_user(user_id: int, current_user=Depends(get_current_admin)):
     db = Database()
@@ -99,7 +99,7 @@ async def delete_user(user_id: int, current_user=Depends(get_current_admin)):
     db.log_user_activity(current_user.username, "delete_user", {"target": user['username']})
     return {"message": f"User {user_id} has been deleted"}
 
-# ---------- User activity (detailed) ----------
+# ---------- User activity (ADMIN ONLY) ----------
 @router.get("/users/{user_id}/activity")
 async def get_user_activity(user_id: int, current_user=Depends(get_current_admin)):
     with get_connection() as conn:
@@ -144,7 +144,7 @@ async def get_user_activity(user_id: int, current_user=Depends(get_current_admin
         "login_logs": [dict(row) for row in login_logs],
     }
 
-# ---------- Dashboard summary ----------
+# ---------- Dashboard summary (ADMIN ONLY) ----------
 @router.get("/dashboard/summary")
 async def get_dashboard_summary(current_user=Depends(get_current_admin)):
     with get_connection() as conn:
@@ -187,7 +187,7 @@ async def get_dashboard_summary(current_user=Depends(get_current_admin)):
         "failed_logins_24h": failed_logins_24h,
     }
 
-# ---------- Security alerts ----------
+# ---------- Security alerts (ADMIN ONLY) ----------
 @router.get("/security/alerts")
 async def get_security_alerts(current_user=Depends(get_current_admin)):
     alerts = []
@@ -214,7 +214,7 @@ async def get_security_alerts(current_user=Depends(get_current_admin)):
                 })
     return {"alerts": alerts}
 
-# ---------- Login logs ----------
+# ---------- Login logs (ADMIN ONLY) ----------
 @router.get("/login-logs")
 async def get_login_logs(current_user=Depends(get_current_admin)):
     with get_connection() as conn:
@@ -224,7 +224,7 @@ async def get_login_logs(current_user=Depends(get_current_admin)):
     logs = [{"username": r[0], "success": r[1], "ip": r[2], "user_agent": r[3], "timestamp": r[4]} for r in rows]
     return logs
 
-# ---------- Override history ----------
+# ---------- Override history (ADMIN ONLY - for audit purposes) ----------
 @router.get("/overrides")
 async def get_overrides(limit: int = 100, current_user=Depends(get_current_admin)):
     try:
@@ -238,7 +238,7 @@ async def get_overrides(limit: int = 100, current_user=Depends(get_current_admin
         logger.error(f"Error fetching overrides: {e}", exc_info=True)
         raise HTTPException(500, "Failed to fetch override history")
 
-# ---------- Single transaction override ----------
+# ---------- Single transaction override (ADMIN ONLY - keep this restricted!) ----------
 @router.post("/transactions/override")
 async def override_transaction(request: Request, current_user=Depends(get_current_admin)):
     try:
@@ -274,7 +274,7 @@ async def override_transaction(request: Request, current_user=Depends(get_curren
         logger.error(f"Error overriding transaction: {e}", exc_info=True)
         raise HTTPException(500, "Failed to override transaction")
 
-# ---------- Bulk approve ----------
+# ---------- Bulk approve (ADMIN ONLY - keep this restricted!) ----------
 @router.post("/transactions/bulk-approve")
 async def bulk_approve(current_user=Depends(get_current_admin)):
     try:
@@ -294,7 +294,7 @@ async def bulk_approve(current_user=Depends(get_current_admin)):
         logger.error(f"Bulk approve failed: {e}", exc_info=True)
         raise HTTPException(500, "Bulk approve failed")
 
-# ---------- Get all users ----------
+# ---------- Get all users (ADMIN ONLY) ----------
 @router.get("/users")
 async def get_all_users(current_user=Depends(get_current_admin)):
     try:
