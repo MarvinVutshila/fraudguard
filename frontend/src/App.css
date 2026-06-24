@@ -1071,3 +1071,92 @@ tr.critical td { background:rgba(239,68,68,0.03); }
     grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
   }
 }
+
+
+/* ===== THEME TOGGLE ===== */
+.theme-toggle {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 1.1rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.theme-toggle:hover {
+  background: var(--surface3);
+  border-color: var(--border-md);
+}
+
+/* ===== THEME-AWARE INPUTS ===== */
+.theme-input,
+.theme-select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.7rem;
+  color: var(--text);
+  font-size: 0.8rem;
+  transition: border-color 0.2s;
+}
+
+.theme-input:focus,
+.theme-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.theme-input::placeholder {
+  color: var(--text-faint);
+}
+
+.theme-select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ===== DARK MODE CHART OVERRIDES ===== */
+[data-theme="dark"] .chart-container canvas {
+  filter: brightness(0.95);
+}
+
+/* ===== SCROLLBAR THEMING ===== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+
+/* ===== TRANSITION FOR THEME CHANGES ===== */
+* {
+  transition: background-color 0.2s ease, 
+              border-color 0.2s ease, 
+              color 0.2s ease,
+              box-shadow 0.2s ease;
+}
+
+/* ===== RESPONSIVE DARK MODE FIXES ===== */
+@media (max-width: 768px) {
+  .navbar-right .theme-toggle span {
+    display: none;
+  }
+}
