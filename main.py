@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from contextlib import asynccontextmanager
 import logging
 import os
@@ -105,14 +105,19 @@ if os.path.exists(assets_path):
     app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
     logger.info(f"Assets mounted from: {assets_path}")
 
-# 4. Middleware to track last_active (with fallback)
+# 4. Middleware to track last_active AND check if user is blocked
 @app.middleware("http")
-async def track_last_active(request: Request, call_next):
-    response = await call_next(request)
+async def track_last_active_and_check_blocked(request: Request, call_next):
+    """
+    Middleware that:
+    1. Tracks user's last_active time
+    2. 🔒 IMMEDIATELY checks if user is blocked/deleted on EVERY request
+    """
     # Skip public endpoints
-    public_paths = {"/auth/login", "/auth/register", "/health", "/", "/docs", "/openapi.json"}
+    public_paths = {"/auth/login", "/auth/register", "/health", "/", "/docs", "/openapi.json", "/favicon.ico"}
     if request.url.path in public_paths:
-        return response
+        return await call_next(request)
+    
     # Check for Authorization header
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
@@ -121,19 +126,50 @@ async def track_last_active(request: Request, call_next):
             from fraud_detection.api.routes.auth import verify_token
             payload = verify_token(token)
             username = payload.get("sub")
+            
             if username:
                 db = Database()
-                if hasattr(db, 'update_last_active'):
-                    db.update_last_active(username)
-                else:
-                    logger.warning("update_last_active method not found in Database class – skipping")
+                user = db.get_user_by_username(username)
+                
+                if user:
+                    # 🔒 IMMEDIATE BLOCK CHECK - This runs on EVERY request
+                    if user.get('status') == 'blocked':
+                        logger.warning(f"🚫 Blocked user attempted to access: {username} - {request.url.path}")
+                        return JSONResponse(
+                            status_code=403,
+                            content={"detail": "Your account has been blocked. Please contact support."}
+                        )
+                    
+                    if user.get('status') == 'deleted':
+                        logger.warning(f"🚫 Deleted user attempted to access: {username} - {request.url.path}")
+                        return JSONResponse(
+                            status_code=403,
+                            content={"detail": "Your account has been deleted."}
+                        )
+                    
+                    if user.get('status') in ['pending', 'rejected']:
+                        logger.warning(f"🚫 {user.get('status')} user attempted to access: {username} - {request.url.path}")
+                        return JSONResponse(
+                            status_code=403,
+                            content={"detail": f"Your account is {user.get('status')}. Please contact support."}
+                        )
+                    
+                    # Update last_active if user is active
+                    if hasattr(db, 'update_last_active'):
+                        db.update_last_active(username)
         except Exception as e:
-            logger.warning(f"Could not update last_active: {e}")
+            logger.warning(f"Could not verify token or check user status: {e}")
+    
+    response = await call_next(request)
     return response
 
 # 5. Catch‑all route: serve static files or index.html
 @app.get("/{full_path:path}")
 async def serve_spa(request: Request, full_path: str):
+    # Skip API paths that might have been missed
+    if full_path.startswith("admin/") or full_path.startswith("auth/") or full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="API endpoint not found")
+    
     file_path = os.path.join(frontend_path, full_path)
     if os.path.exists(file_path) and os.path.isfile(file_path):
         return FileResponse(file_path)
