@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
+
+// Use fetch directly instead of the api client for now
+const API_BASE_URL = 'https://fraudguard-434w.onrender.com';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -8,14 +10,6 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  // 2FA state
-  const [show2FA, setShow2FA] = useState(false);
-  const [twoFACode, setTwoFACode] = useState('');
-  const [tempUsername, setTempUsername] = useState('');
-  const [tempAccessToken, setTempAccessToken] = useState('');
-  const [tempRefreshToken, setTempRefreshToken] = useState('');
-  const [tempRole, setTempRole] = useState('');
 
   // Signup modal state
   const [showSignup, setShowSignup] = useState(false);
@@ -33,84 +27,50 @@ export default function Login() {
     
     console.log('🔐 Attempting login...');
     console.log('📧 Email:', email);
-    console.log('🔗 API URL:', api.defaults.baseURL);
+    console.log('🔑 Password length:', password.length);
     
     try {
-      const res = await api.post('/auth/login', { 
-        username: email, 
-        password: password 
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: email,
+          password: password
+        })
       });
       
-      console.log('✅ Login response received!');
-      console.log('📦 Response data:', res.data);
+      console.log('📡 Response status:', response.status);
       
-      const { access_token, refresh_token, role, totp_enabled, requires_2fa } = res.data;
+      const data = await response.json();
+      console.log('📦 Response data:', data);
       
-      if (requires_2fa && totp_enabled) {
-        // Store temp data and show 2FA modal
-        setTempUsername(email);
-        setTempAccessToken(access_token);
-        setTempRefreshToken(refresh_token);
-        setTempRole(role);
-        setShow2FA(true);
-        setLoading(false);
-        return;
+      if (!response.ok) {
+        throw new Error(data.detail || 'Login failed');
       }
       
-      localStorage.setItem('fg_token', access_token);
-      if (refresh_token) {
-        localStorage.setItem('fg_refresh_token', refresh_token);
+      // Store tokens
+      localStorage.setItem('fg_token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('fg_refresh_token', data.refresh_token);
       }
-      localStorage.setItem('fg_role', role || 'analyst');
+      localStorage.setItem('fg_role', data.role || 'analyst');
       
-      console.log('✅ Login successful! Redirecting to dashboard...');
+      console.log('✅ Login successful! Redirecting...');
       navigate('/');
     } catch (err) {
       console.error('❌ Login error:', err);
-      console.error('📡 Error response:', err.response);
-      console.error('📡 Error data:', err.response?.data);
-      console.error('📡 Error status:', err.response?.status);
       
-      if (err.code === 'ERR_NETWORK') {
-        setError('Cannot connect to server. Please check your network connection.');
-      } else if (err.response?.status === 401) {
+      if (err.message.includes('Failed to fetch')) {
+        setError('Cannot connect to server. Please check your internet connection.');
+      } else if (err.message.includes('401')) {
         setError('Invalid email or password. Please try again.');
-      } else if (err.response?.status === 429) {
-        setError('Too many login attempts. Please wait a few minutes.');
-      } else if (err.response?.status === 403) {
-        setError(err.response?.data?.detail || 'Account is pending approval or has been blocked.');
-      } else if (err.response?.status === 500) {
-        setError('Server error. Please try again later.');
       } else {
-        setError(err.response?.data?.detail || 'Login failed. Please try again.');
+        setError(err.message || 'Login failed. Please try again.');
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handle2FAVerify = async () => {
-    if (!twoFACode || twoFACode.length !== 6) {
-      setError('Please enter a valid 6-digit code');
-      return;
-    }
-    
-    try {
-      const res = await api.post('/2fa/verify', {
-        username: tempUsername,
-        code: twoFACode
-      });
-      
-      if (res.data.verified) {
-        localStorage.setItem('fg_token', tempAccessToken);
-        localStorage.setItem('fg_refresh_token', tempRefreshToken);
-        localStorage.setItem('fg_role', tempRole);
-        setShow2FA(false);
-        navigate('/');
-      }
-    } catch (err) {
-      console.error('❌ 2FA error:', err);
-      setError(err.response?.data?.detail || 'Invalid 2FA code');
     }
   };
 
@@ -127,7 +87,19 @@ export default function Login() {
         password: signupPassword,
         avatar_url: signupAvatar || null,
       };
-      await api.post('/auth/register', payload);
+      
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.detail || 'Registration failed');
+      }
+      
       setShowSignup(false);
       alert('Account created! Please wait for admin approval.');
       setSignupEmail('');
@@ -136,7 +108,7 @@ export default function Login() {
       setSignupAvatar(null);
     } catch (err) {
       console.error('❌ Signup error:', err);
-      setSignupError(err.response?.data?.detail || 'Registration failed');
+      setSignupError(err.message || 'Registration failed');
     } finally {
       setSignupLoading(false);
     }
@@ -214,6 +186,7 @@ export default function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="analyst@bank.com"
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -227,6 +200,7 @@ export default function Login() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     required
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -289,44 +263,6 @@ export default function Login() {
               <button className="btn-secondary" onClick={() => setShowSignup(false)}>Cancel</button>
               <button className="btn-primary" onClick={handleSignup} disabled={signupLoading}>
                 {signupLoading ? 'Creating…' : 'Create Account'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 2FA Modal */}
-      {show2FA && (
-        <div className="modal-overlay open" onClick={() => setShow2FA(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-hdr">
-              <h3>🔐 Two-Factor Authentication</h3>
-              <button className="modal-close" onClick={() => setShow2FA(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              <p style={{ marginBottom: '1rem' }}>
-                Enter the 6-digit code from your authenticator app to complete login.
-              </p>
-              <div className="field">
-                <label>Authentication Code</label>
-                <div className="input-wrap">
-                  <span className="input-icon">🔑</span>
-                  <input
-                    type="text"
-                    value={twoFACode}
-                    onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="123456"
-                    maxLength="6"
-                    autoFocus
-                  />
-                </div>
-              </div>
-              {error && <div className="error-message">{error}</div>}
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setShow2FA(false)}>Cancel</button>
-              <button className="btn-primary" onClick={handle2FAVerify} disabled={twoFACode.length !== 6}>
-                Verify
               </button>
             </div>
           </div>
