@@ -46,13 +46,8 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
 # ---------- Activity Logging ----------
 async def log_activity(username: str, action: str, details: dict = None):
     try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "INSERT INTO user_activity (username, action, details) VALUES (%s, %s, %s)",
-                    (username, action, json.dumps(details) if details else None)
-                )
-            conn.commit()
+        db = Database()
+        db.log_user_activity(username, action, details)
     except Exception as e:
         logger.error(f"Failed to log activity for {username}: {e}")
 
@@ -88,19 +83,9 @@ async def login(creds: LoginRequest, request: Request):
                     success = True
 
     if not success:
-        try:
-            with get_connection() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        """
-                        INSERT INTO login_logs (username, success, ip, user_agent, timestamp)
-                        VALUES (%s, %s, %s, %s, NOW())
-                        """,
-                        (creds.username, False, client_ip, user_agent)
-                    )
-                conn.commit()
-        except Exception as e:
-            logger.error(f"Failed to log failed login for {creds.username}: {e}")
+        # Log failed attempt using Database class
+        db = Database()
+        db.log_login_attempt(creds.username, False, client_ip, user_agent)
 
         if status == "pending":
             raise HTTPException(403, detail="Account pending admin approval. You will be notified once approved.")
@@ -113,28 +98,15 @@ async def login(creds: LoginRequest, request: Request):
 
     token = create_access_token({"sub": user, "role": role})
 
-    await log_activity(user, "login", {"ip": client_ip, "user_agent": user_agent})
-
-    try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO login_logs (username, success, ip, user_agent, timestamp)
-                    VALUES (%s, %s, %s, %s, NOW())
-                    """,
-                    (creds.username, True, client_ip, user_agent)
-                )
-            conn.commit()
-    except Exception as e:
-        logger.error(f"Failed to log successful login for {creds.username}: {e}")
-
-    # Update last_active on successful login – with enhanced logging
-    try:
-        db = Database()
-        db.update_last_active(creds.username)
-    except Exception as e:
-        logger.warning(f"Could not update last_active for {creds.username}: {e}", exc_info=True)  # <-- added exc_info
+    # Log successful login using Database class
+    db = Database()
+    db.log_login_attempt(creds.username, True, client_ip, user_agent)
+    
+    # Log activity
+    db.log_user_activity(user, "login", {"ip": client_ip, "user_agent": user_agent})
+    
+    # Update last_active
+    db.update_last_active(creds.username)
 
     return {"access_token": token, "token_type": "bearer", "role": role}
 
@@ -185,5 +157,6 @@ async def logout(payload: dict = Depends(verify_token)):
     """
     username = payload.get("sub")
     if username:
-        await log_activity(username, "logout", {"message": "User logged out"})
+        db = Database()
+        db.log_user_activity(username, "logout", {"message": "User logged out"})
     return {"message": "Logged out successfully"}
