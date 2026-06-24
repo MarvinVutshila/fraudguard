@@ -16,6 +16,7 @@ from fraud_detection.database.postgres_db import Database, init_db_pool, create_
 from fraud_detection.api.routes import router
 from fraud_detection.api.dependencies import set_services
 from fraud_detection.api.auth import create_access_token
+from fastapi.middleware.cors import CORSMiddleware
 
 logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -36,6 +37,12 @@ async def lifespan(app: FastAPI):
         init_db_pool(DB_DSN, min_conn=1, max_conn=10)
         create_tables()
         db = Database()
+        
+        # Ensure refresh tokens table exists
+        db.create_refresh_tokens_table()
+        
+        # Ensure TOTP columns exist
+        db.add_totp_columns()
 
         logger.info("Loading model artefacts…")
         artefacts = load_artefacts(MODELS_DIR)
@@ -56,12 +63,25 @@ async def lifespan(app: FastAPI):
         logger.info("Application startup complete.")
     except Exception as e:
         logger.error(f"Startup failed: {e}", exc_info=True)
-        raise  # Re-raise so the app exits with a clear error
+        raise
 
     yield
     logger.info("Shutting down – database pool will be closed automatically")
 
-app = FastAPI(title="Fraud Detection API", version="3.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="Fraud Detection API", 
+    version="3.0.0", 
+    lifespan=lifespan
+)
+
+# ---- CORS Middleware ----
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Update with your frontend URL in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ---- Health check endpoint ----
 @app.get("/health")
@@ -101,7 +121,6 @@ async def track_last_active(request: Request, call_next):
             username = payload.get("sub")
             if username:
                 db = Database()
-                # Check if the method exists before calling it
                 if hasattr(db, 'update_last_active'):
                     db.update_last_active(username)
                 else:
@@ -123,6 +142,5 @@ async def serve_spa(request: Request, full_path: str):
 
 if __name__ == "__main__":
     import uvicorn
-    import os
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
