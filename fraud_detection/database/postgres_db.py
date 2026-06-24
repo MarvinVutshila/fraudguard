@@ -380,8 +380,8 @@ class Database:
             conn.commit()
 
     def delete_user(self, user_id: int) -> None:
-        # Soft delete – set status to 'deleted'
-        sql = "UPDATE users SET status = 'deleted' WHERE id = %s;"
+        """Permanently delete a user from the database"""
+        sql = "DELETE FROM users WHERE id = %s;"
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(sql, (user_id,))
@@ -619,7 +619,7 @@ class Database:
         """Get user statistics for admin dashboard"""
         with get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) FROM users WHERE status != 'deleted'")
+                cur.execute("SELECT COUNT(*) FROM users")
                 total_users = cur.fetchone()[0]
                 
                 cur.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
@@ -634,7 +634,7 @@ class Database:
                 cur.execute("SELECT COUNT(*) FROM users WHERE status = 'rejected'")
                 rejected_users = cur.fetchone()[0]
                 
-                cur.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND status != 'deleted'")
+                cur.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
                 admin_users = cur.fetchone()[0]
                 
                 cur.execute("SELECT COUNT(*) FROM users WHERE totp_enabled = TRUE")
