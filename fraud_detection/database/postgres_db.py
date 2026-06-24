@@ -502,6 +502,14 @@ class Database:
         return [dict(row) for row in rows]
 
     # ---- Refresh Tokens ----
+    def create_refresh_tokens_table(self) -> None:
+        """Create refresh tokens table if it doesn't exist"""
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(CREATE_REFRESH_TOKENS_TABLE_SQL)
+            conn.commit()
+        logger.info("Refresh tokens table verified")
+
     def store_refresh_token(self, username: str, token: str, expires_at: datetime) -> None:
         sql = """
             INSERT INTO refresh_tokens (username, token, expires_at)
@@ -548,6 +556,27 @@ class Database:
         return deleted
 
     # ---- 2FA ----
+    def add_totp_columns(self) -> None:
+        """Add TOTP columns to users table if they don't exist"""
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name='users' AND column_name='totp_secret';
+                """)
+                if not cur.fetchone():
+                    cur.execute("ALTER TABLE users ADD COLUMN totp_secret TEXT;")
+                    logger.info("Added totp_secret column.")
+                
+                cur.execute("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name='users' AND column_name='totp_enabled';
+                """)
+                if not cur.fetchone():
+                    cur.execute("ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN DEFAULT FALSE;")
+                    logger.info("Added totp_enabled column.")
+            conn.commit()
+
     def store_totp_secret(self, username: str, secret: str) -> None:
         sql = "UPDATE users SET totp_secret = %s WHERE username = %s"
         with get_connection() as conn:
