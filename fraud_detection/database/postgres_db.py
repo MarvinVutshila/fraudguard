@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import json
 from contextlib import contextmanager
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -51,7 +52,9 @@ CREATE TABLE IF NOT EXISTS users (
     last_active     TIMESTAMPTZ,
     created_at      TIMESTAMPTZ DEFAULT NOW(),
     blocked_reason  TEXT,
-    blocked_at      TIMESTAMPTZ
+    blocked_at      TIMESTAMPTZ,
+    totp_secret     TEXT,
+    totp_enabled    BOOLEAN DEFAULT FALSE
 );
 """
 
@@ -77,6 +80,21 @@ CREATE TABLE IF NOT EXISTS user_activity (
     timestamp   TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_user_activity_timestamp ON user_activity (timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_user_activity_username ON user_activity (username);
+"""
+
+CREATE_REFRESH_TOKENS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id          SERIAL PRIMARY KEY,
+    username    TEXT NOT NULL,
+    token       TEXT NOT NULL UNIQUE,
+    expires_at  TIMESTAMPTZ NOT NULL,
+    revoked     BOOLEAN DEFAULT FALSE,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_username ON refresh_tokens (username);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens (token);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens (expires_at);
 """
 
 # -------------------------------------------------------------------
@@ -102,12 +120,13 @@ def create_tables() -> None:
             cur.execute(CREATE_USERS_TABLE_SQL)
             cur.execute(CREATE_LOGIN_LOGS_TABLE_SQL)
             cur.execute(CREATE_USER_ACTIVITY_TABLE_SQL)
+            cur.execute(CREATE_REFRESH_TOKENS_TABLE_SQL)
         conn.commit()
 
     # Add missing columns if they don't exist
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # Check and add last_active (already handled earlier, but keep for safety)
+            # Check and add last_active
             cur.execute("""
                 SELECT column_name FROM information_schema.columns
                 WHERE table_name='users' AND column_name='last_active';
@@ -134,6 +153,24 @@ def create_tables() -> None:
                 cur.execute("ALTER TABLE users ADD COLUMN blocked_at TIMESTAMPTZ;")
                 logger.info("Added blocked_at column.")
 
+            # Add totp_secret
+            cur.execute("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name='users' AND column_name='totp_secret';
+            """)
+            if not cur.fetchone():
+                cur.execute("ALTER TABLE users ADD COLUMN totp_secret TEXT;")
+                logger.info("Added totp_secret column.")
+
+            # Add totp_enabled
+            cur.execute("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name='users' AND column_name='totp_enabled';
+            """)
+            if not cur.fetchone():
+                cur.execute("ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN DEFAULT FALSE;")
+                logger.info("Added totp_enabled column.")
+
         conn.commit()
 
     logger.info("Database tables and indexes verified")
@@ -156,7 +193,7 @@ class Database:
         if _pool is None:
             raise RuntimeError("Database pool not initialised. Call init_db_pool() first.")
 
-    # ---- Transactions (unchanged) ----
+    # ---- Transactions ----
     def insert_transaction(self, transaction_id: str, amount: float,
                            probability: float, decision: str,
                            risk_level: str, timestamp: Optional[datetime] = None) -> int:
@@ -281,7 +318,7 @@ class Database:
                 cur.execute(sql, (decision, risk_level, transaction_id))
             conn.commit()
 
-    # ---- Users (updated) ----
+    # ---- Users ----
     def create_user(self, username: str, password: str,
                     role: str = 'analyst', status: str = 'pending',
                     avatar_url: Optional[str] = None) -> int:
@@ -370,7 +407,7 @@ class Database:
     def get_all_users(self) -> List[Dict[str, Any]]:
         sql = """
             SELECT id, username, role, status, avatar_url, last_active, created_at,
-                   blocked_reason, blocked_at
+                   blocked_reason, blocked_at, totp_enabled
             FROM users
             ORDER BY username;
         """
@@ -413,10 +450,23 @@ class Database:
                 rows = cur.fetchall()
         return [dict(row) for row in rows]
 
+    def get_login_logs_for_user(self, username: str, limit: int = 50) -> List[Dict[str, Any]]:
+        sql = """
+            SELECT username, success, ip, user_agent, timestamp
+            FROM login_logs
+            WHERE username = %s
+            ORDER BY timestamp DESC
+            LIMIT %s;
+        """
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(sql, (username, limit))
+                rows = cur.fetchall()
+        return [dict(row) for row in rows]
+
     # ---- User Activity ----
     def log_user_activity(self, username: str, action: str,
                           details: Optional[Dict[str, Any]] = None) -> None:
-        import json
         sql = """
             INSERT INTO user_activity (username, action, details, timestamp)
             VALUES (%s, %s, %s, NOW());
@@ -450,3 +500,183 @@ class Database:
                 cur.execute(sql, params)
                 rows = cur.fetchall()
         return [dict(row) for row in rows]
+
+    # ---- Refresh Tokens ----
+    def store_refresh_token(self, username: str, token: str, expires_at: datetime) -> None:
+        sql = """
+            INSERT INTO refresh_tokens (username, token, expires_at)
+            VALUES (%s, %s, %s)
+        """
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (username, token, expires_at))
+            conn.commit()
+
+    def get_refresh_token(self, username: str, token: str) -> Optional[Dict[str, Any]]:
+        sql = """
+            SELECT * FROM refresh_tokens
+            WHERE username = %s AND token = %s AND revoked = FALSE AND expires_at > NOW()
+        """
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(sql, (username, token))
+                row = cur.fetchone()
+        return dict(row) if row else None
+
+    def revoke_refresh_token(self, username: str, token: str) -> None:
+        sql = "UPDATE refresh_tokens SET revoked = TRUE WHERE username = %s AND token = %s"
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (username, token))
+            conn.commit()
+
+    def revoke_all_refresh_tokens(self, username: str) -> None:
+        sql = "UPDATE refresh_tokens SET revoked = TRUE WHERE username = %s"
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (username,))
+            conn.commit()
+
+    def cleanup_expired_refresh_tokens(self) -> int:
+        """Delete expired refresh tokens and return count"""
+        sql = "DELETE FROM refresh_tokens WHERE expires_at < NOW() OR revoked = TRUE"
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql)
+                deleted = cur.rowcount
+            conn.commit()
+        return deleted
+
+    # ---- 2FA ----
+    def store_totp_secret(self, username: str, secret: str) -> None:
+        sql = "UPDATE users SET totp_secret = %s WHERE username = %s"
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (secret, username))
+            conn.commit()
+
+    def get_totp_secret(self, username: str) -> Optional[str]:
+        sql = "SELECT totp_secret FROM users WHERE username = %s"
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (username,))
+                row = cur.fetchone()
+        return row[0] if row else None
+
+    def enable_2fa(self, username: str, secret: str) -> None:
+        sql = "UPDATE users SET totp_secret = %s, totp_enabled = TRUE WHERE username = %s"
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (secret, username))
+            conn.commit()
+
+    def disable_2fa(self, username: str) -> None:
+        sql = "UPDATE users SET totp_secret = NULL, totp_enabled = FALSE WHERE username = %s"
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (username,))
+            conn.commit()
+
+    def is_2fa_enabled(self, username: str) -> bool:
+        sql = "SELECT totp_enabled FROM users WHERE username = %s"
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (username,))
+                row = cur.fetchone()
+        return row[0] if row else False
+
+    # ---- User Management Stats ----
+    def get_user_stats(self) -> Dict[str, Any]:
+        """Get user statistics for admin dashboard"""
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM users WHERE status != 'deleted'")
+                total_users = cur.fetchone()[0]
+                
+                cur.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
+                active_users = cur.fetchone()[0]
+                
+                cur.execute("SELECT COUNT(*) FROM users WHERE status = 'pending'")
+                pending_users = cur.fetchone()[0]
+                
+                cur.execute("SELECT COUNT(*) FROM users WHERE status = 'blocked'")
+                blocked_users = cur.fetchone()[0]
+                
+                cur.execute("SELECT COUNT(*) FROM users WHERE status = 'rejected'")
+                rejected_users = cur.fetchone()[0]
+                
+                cur.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND status != 'deleted'")
+                admin_users = cur.fetchone()[0]
+                
+                cur.execute("SELECT COUNT(*) FROM users WHERE totp_enabled = TRUE")
+                twofa_enabled = cur.fetchone()[0]
+                
+        return {
+            "total_users": total_users,
+            "active_users": active_users,
+            "pending_users": pending_users,
+            "blocked_users": blocked_users,
+            "rejected_users": rejected_users,
+            "admin_users": admin_users,
+            "twofa_enabled": twofa_enabled
+        }
+
+    # ---- Security Alerts ----
+    def get_brute_force_alerts(self, minutes: int = 15, threshold: int = 5) -> List[Dict[str, Any]]:
+        """Get users with multiple failed login attempts in a time window"""
+        sql = """
+            SELECT username, COUNT(*) as attempts, 
+                   MAX(timestamp) as last_attempt,
+                   MIN(timestamp) as first_attempt,
+                   array_agg(DISTINCT ip) as ips
+            FROM login_logs
+            WHERE success = false
+            AND timestamp > NOW() - INTERVAL '%s minutes'
+            GROUP BY username
+            HAVING COUNT(*) > %s
+            ORDER BY last_attempt DESC
+        """
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(sql, (minutes, threshold))
+                rows = cur.fetchall()
+        return [dict(row) for row in rows]
+
+    def get_recent_failed_logins(self, username: str, hours: int = 24) -> int:
+        """Get number of failed login attempts for a user in the last X hours"""
+        sql = """
+            SELECT COUNT(*) 
+            FROM login_logs
+            WHERE username = %s 
+            AND success = false
+            AND timestamp > NOW() - INTERVAL '%s hours'
+        """
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (username, hours))
+                row = cur.fetchone()
+        return row[0] if row else 0
+
+    # ---- Cleanup ----
+    def cleanup_old_logs(self, days: int = 30) -> Dict[str, int]:
+        """Clean up old logs and return counts of deleted rows"""
+        results = {}
+        
+        # Clean login_logs
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM login_logs WHERE timestamp < NOW() - INTERVAL '%s days'", (days,))
+                results['login_logs'] = cur.rowcount
+            conn.commit()
+        
+        # Clean user_activity
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM user_activity WHERE timestamp < NOW() - INTERVAL '%s days'", (days,))
+                results['user_activity'] = cur.rowcount
+            conn.commit()
+        
+        # Clean expired refresh tokens
+        results['refresh_tokens'] = self.cleanup_expired_refresh_tokens()
+        
+        return results
