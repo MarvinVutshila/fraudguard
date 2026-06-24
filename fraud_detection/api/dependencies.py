@@ -25,7 +25,7 @@ def get_services():
     return _services
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    """Get current user from token"""
+    """Get current user from token and check if they are still active"""
     try:
         token = credentials.credentials
         payload = verify_token(credentials)
@@ -39,9 +39,26 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
+        # 🔒 Check if user is blocked - IMMEDIATELY REJECT
+        if user.get('status') == 'blocked':
+            raise HTTPException(
+                status_code=403, 
+                detail="Your account has been blocked. Please contact support."
+            )
+        
         # Check if user is deleted
         if user.get('status') == 'deleted':
-            raise HTTPException(status_code=403, detail="User account has been deleted")
+            raise HTTPException(
+                status_code=403, 
+                detail="Your account has been deleted."
+            )
+        
+        # Check if user is pending or rejected
+        if user.get('status') in ['pending', 'rejected']:
+            raise HTTPException(
+                status_code=403, 
+                detail=f"Your account is {user.get('status')}. Please contact support."
+            )
         
         return user
     except HTTPException:
@@ -74,7 +91,7 @@ def get_optional_user(credentials: Optional[HTTPAuthorizationCredentials] = Depe
         
         db = Database()
         user = db.get_user_by_username(username)
-        if not user or user.get('status') == 'deleted':
+        if not user or user.get('status') in ['blocked', 'deleted']:
             return None
         
         return user
@@ -90,3 +107,16 @@ async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCrede
 def get_current_admin_user(user: dict = Depends(get_current_admin)):
     """Alias for get_current_admin"""
     return user
+
+# Export everything
+__all__ = [
+    'set_services',
+    'get_services',
+    'get_current_user',
+    'get_current_admin',
+    'get_current_analyst',
+    'get_optional_user',
+    'get_current_user_optional',
+    'get_current_admin_user',
+    'security'
+]
