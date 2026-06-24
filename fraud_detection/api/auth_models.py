@@ -8,7 +8,7 @@ class LoginRequest(BaseModel):
 
 class UserRegister(BaseModel):
     username: str = Field(..., description="User's email/username")
-    password: str = Field(..., description="User's password (min 8 chars, with uppercase, lowercase, number, special char)")
+    password: str = Field(..., description="User's password (min 8 chars)")
     avatar_url: Optional[str] = Field(None, description="Optional avatar URL")
 
     @validator('username')
@@ -35,9 +35,6 @@ class UserRegister(BaseModel):
         if v.lower() in common_passwords:
             raise ValueError('Password is too common. Please choose a stronger password')
         return v
-
-class RefreshTokenRequest(BaseModel):
-    refresh_token: str
 
 class TwoFactorSetupRequest(BaseModel):
     code: str
