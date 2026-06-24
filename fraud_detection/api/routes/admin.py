@@ -29,19 +29,27 @@ async def test_route():
 # ---------- User approval endpoints (ADMIN ONLY) ----------
 @router.get("/users/pending")
 async def get_pending_users(current_user=Depends(get_current_admin)):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT id, username, avatar_url, created_at FROM users WHERE status = 'pending'")
-            rows = cur.fetchall()
-    return {"pending": [{"id": r[0], "username": r[1], "avatar_url": r[2], "created_at": r[3]} for r in rows]}
+    db = Database()
+    pending = db.get_pending_users()
+    return {"pending": pending}
 
 @router.post("/users/approve")
 async def approve_user(approval: UserApprove, current_user=Depends(get_current_admin)):
+    db = Database()
+    user = db.get_user_by_id(approval.user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    
     new_status = "active" if approval.approve else "rejected"
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("UPDATE users SET status = %s WHERE id = %s", (new_status, approval.user_id))
-        conn.commit()
+    db.update_user_status(approval.user_id, new_status)
+    
+    # Log activity
+    db.log_user_activity(
+        current_user.get('sub', 'admin'), 
+        "approve_user", 
+        {"target": user['username'], "status": new_status}
+    )
+    
     return {"message": f"User {approval.user_id} set to {new_status}"}
 
 # ---------- User role update (ADMIN ONLY) ----------
@@ -51,12 +59,24 @@ async def update_user_role(user_id: int, update: RoleUpdate, current_user=Depend
     if update.role not in valid_roles:
         raise HTTPException(400, f"Invalid role. Must be one of: {', '.join(valid_roles)}")
     
+    db = Database()
+    user = db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE users SET role = %s WHERE id = %s RETURNING id", (update.role, user_id))
             if not cur.fetchone():
                 raise HTTPException(404, "User not found")
         conn.commit()
+    
+    # Log activity
+    db.log_user_activity(
+        current_user.get('sub', 'admin'),
+        "change_role",
+        {"target": user['username'], "new_role": update.role}
+    )
     
     return {"message": f"User {user_id} role updated to {update.role}"}
 
@@ -69,8 +89,13 @@ async def block_user(user_id: int, block_data: BlockRequest, current_user=Depend
         raise HTTPException(404, "User not found")
     if user['status'] == 'deleted':
         raise HTTPException(400, "Cannot block a deleted user")
+    
     db.block_user(user_id, block_data.reason)
-    db.log_user_activity(current_user.username, "block_user", {"target": user['username'], "reason": block_data.reason})
+    db.log_user_activity(
+        current_user.get('sub', 'admin'), 
+        "block_user", 
+        {"target": user['username'], "reason": block_data.reason}
+    )
     return {"message": f"User {user_id} has been blocked"}
 
 # ---------- Unblock user (ADMIN ONLY) ----------
@@ -82,8 +107,13 @@ async def unblock_user(user_id: int, current_user=Depends(get_current_admin)):
         raise HTTPException(404, "User not found")
     if user['status'] != 'blocked':
         raise HTTPException(400, "User is not currently blocked")
+    
     db.unblock_user(user_id)
-    db.log_user_activity(current_user.username, "unblock_user", {"target": user['username']})
+    db.log_user_activity(
+        current_user.get('sub', 'admin'), 
+        "unblock_user", 
+        {"target": user['username']}
+    )
     return {"message": f"User {user_id} has been unblocked"}
 
 # ---------- Delete user (ADMIN ONLY) ----------
@@ -95,53 +125,55 @@ async def delete_user(user_id: int, current_user=Depends(get_current_admin)):
         raise HTTPException(404, "User not found")
     if user['status'] == 'deleted':
         raise HTTPException(400, "User already deleted")
+    
+    # Prevent deleting the last admin
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND status != 'deleted'")
+            admin_count = cur.fetchone()[0]
+            if admin_count <= 1 and user['role'] == 'admin':
+                raise HTTPException(400, "Cannot delete the last admin user")
+    
     db.delete_user(user_id)
-    db.log_user_activity(current_user.username, "delete_user", {"target": user['username']})
+    db.log_user_activity(
+        current_user.get('sub', 'admin'), 
+        "delete_user", 
+        {"target": user['username']}
+    )
     return {"message": f"User {user_id} has been deleted"}
 
 # ---------- User activity (ADMIN ONLY) ----------
 @router.get("/users/{user_id}/activity")
 async def get_user_activity(user_id: int, current_user=Depends(get_current_admin)):
+    db = Database()
+    
+    # Get user info
+    user = db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    
+    # Get recent failed logins count
     with get_connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("""
-                SELECT id, username, role, status, avatar_url, last_active, created_at,
-                       blocked_reason, blocked_at
-                FROM users WHERE id = %s
-            """, (user_id,))
-            user = cur.fetchone()
-            if not user:
-                raise HTTPException(404, "User not found")
-            
             cur.execute("""
                 SELECT COUNT(*) FROM login_logs
                 WHERE username = %s AND success = false
                 AND timestamp > NOW() - INTERVAL '24 hours'
             """, (user['username'],))
-            user['recent_failed_logins'] = cur.fetchone()[0]
-            
-            cur.execute("""
-                SELECT action, details, timestamp
-                FROM user_activity
-                WHERE username = %s
-                ORDER BY timestamp DESC
-                LIMIT 50
-            """, (user['username'],))
-            activity = cur.fetchall()
-            
-            cur.execute("""
-                SELECT success, ip, user_agent, timestamp
-                FROM login_logs
-                WHERE username = %s
-                ORDER BY timestamp DESC
-                LIMIT 50
-            """, (user['username'],))
-            login_logs = cur.fetchall()
+            user['recent_failed_logins'] = cur.fetchone()['count']
+    
+    # Get activity logs using Database class
+    activity = db.get_user_activity(user['username'], 50)
+    
+    # Get login logs using Database class
+    login_logs = db.get_login_logs(50)
+    # Filter for this specific user
+    login_logs = [log for log in login_logs if log['username'] == user['username']]
     
     return {
-        "user": dict(user),
-        "activity": [dict(row) for row in activity],
-        "login_logs": [dict(row) for row in login_logs],
+        "user": user,
+        "activity": activity,
+        "login_logs": login_logs,
     }
 
 # ---------- Dashboard summary (ADMIN ONLY) ----------
@@ -217,11 +249,8 @@ async def get_security_alerts(current_user=Depends(get_current_admin)):
 # ---------- Login logs (ADMIN ONLY) ----------
 @router.get("/login-logs")
 async def get_login_logs(current_user=Depends(get_current_admin)):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT username, success, ip, user_agent, timestamp FROM login_logs ORDER BY timestamp DESC LIMIT 200")
-            rows = cur.fetchall()
-    logs = [{"username": r[0], "success": r[1], "ip": r[2], "user_agent": r[3], "timestamp": r[4]} for r in rows]
+    db = Database()
+    logs = db.get_login_logs(200)
     return logs
 
 # ---------- Override history (ADMIN ONLY - for audit purposes) ----------
@@ -238,7 +267,7 @@ async def get_overrides(limit: int = 100, current_user=Depends(get_current_admin
         logger.error(f"Error fetching overrides: {e}", exc_info=True)
         raise HTTPException(500, "Failed to fetch override history")
 
-# ---------- Single transaction override (ADMIN ONLY - keep this restricted!) ----------
+# ---------- Single transaction override (ADMIN ONLY) ----------
 @router.post("/transactions/override")
 async def override_transaction(request: Request, current_user=Depends(get_current_admin)):
     try:
@@ -274,7 +303,7 @@ async def override_transaction(request: Request, current_user=Depends(get_curren
         logger.error(f"Error overriding transaction: {e}", exc_info=True)
         raise HTTPException(500, "Failed to override transaction")
 
-# ---------- Bulk approve (ADMIN ONLY - keep this restricted!) ----------
+# ---------- Bulk approve (ADMIN ONLY) ----------
 @router.post("/transactions/bulk-approve")
 async def bulk_approve(current_user=Depends(get_current_admin)):
     try:
@@ -296,11 +325,41 @@ async def bulk_approve(current_user=Depends(get_current_admin)):
 
 # ---------- Get all users (ADMIN ONLY) ----------
 @router.get("/users")
-async def get_all_users(current_user=Depends(get_current_admin)):
+async def get_all_users(
+    page: int = 1,
+    page_size: int = 15,
+    search: Optional[str] = None,
+    role: Optional[str] = None,
+    status: Optional[str] = None,
+    current_user=Depends(get_current_admin)
+):
     try:
         db = Database()
         users = db.get_all_users()
-        return {"users": users}
+        
+        # Apply filters
+        if search:
+            users = [u for u in users if search.lower() in u['username'].lower()]
+        if role:
+            users = [u for u in users if u['role'] == role]
+        if status:
+            users = [u for u in users if u['status'] == status]
+        
+        total = len(users)
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+        
+        # Paginate
+        start = (page - 1) * page_size
+        end = start + page_size
+        paginated_users = users[start:end]
+        
+        return {
+            "users": paginated_users,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages
+        }
     except Exception as e:
         logger.error(f"Error fetching users: {e}", exc_info=True)
         raise HTTPException(500, "Failed to fetch users")
