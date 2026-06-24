@@ -116,15 +116,25 @@ async def unblock_user(user_id: int, current_user=Depends(get_current_admin)):
     )
     return {"message": f"User {user_id} has been unblocked"}
 
-# ---------- Delete user (ADMIN ONLY) ----------
+# ---------- Delete user (ADMIN ONLY) - COMPLETE CASCADE DELETE ----------
 @router.delete("/users/{user_id}")
 async def delete_user(user_id: int, current_user=Depends(get_current_admin)):
+    """
+    Permanently delete a user and all their associated data.
+    - Deletes from users table
+    - Deletes from login_logs table
+    - Deletes from user_activity table
+    - Deletes from refresh_tokens table
+    - Cannot delete the last admin user
+    """
     db = Database()
     user = db.get_user_by_id(user_id)
     if not user:
         raise HTTPException(404, "User not found")
+    
+    # Check if user is already deleted
     if user['status'] == 'deleted':
-        raise HTTPException(400, "User already deleted")
+        raise HTTPException(400, "User is already deleted")
     
     # Prevent deleting the last admin
     with get_connection() as conn:
@@ -132,15 +142,54 @@ async def delete_user(user_id: int, current_user=Depends(get_current_admin)):
             cur.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND status != 'deleted'")
             admin_count = cur.fetchone()[0]
             if admin_count <= 1 and user['role'] == 'admin':
-                raise HTTPException(400, "Cannot delete the last admin user")
+                raise HTTPException(400, "Cannot delete the last admin user. Please create another admin first.")
     
-    db.delete_user(user_id)
+    # Get username for logging and deletion
+    username = user['username']
+    admin_username = current_user.get('sub', 'admin')
+    
+    # Perform hard delete (remove all user data from all tables)
+    deleted_counts = {}
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Delete user activity logs
+            cur.execute("DELETE FROM user_activity WHERE username = %s", (username,))
+            deleted_counts['user_activity'] = cur.rowcount
+            logger.info(f"Deleted {cur.rowcount} user_activity records for {username}")
+            
+            # Delete login logs
+            cur.execute("DELETE FROM login_logs WHERE username = %s", (username,))
+            deleted_counts['login_logs'] = cur.rowcount
+            logger.info(f"Deleted {cur.rowcount} login_logs records for {username}")
+            
+            # Delete refresh tokens
+            cur.execute("DELETE FROM refresh_tokens WHERE username = %s", (username,))
+            deleted_counts['refresh_tokens'] = cur.rowcount
+            logger.info(f"Deleted {cur.rowcount} refresh_tokens records for {username}")
+            
+            # Delete the user
+            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            deleted_counts['users'] = cur.rowcount
+            logger.info(f"Deleted user {username} (ID: {user_id})")
+        conn.commit()
+    
+    # Log the activity (by admin who deleted)
     db.log_user_activity(
-        current_user.get('sub', 'admin'), 
+        admin_username, 
         "delete_user", 
-        {"target": user['username']}
+        {
+            "deleted_user": username, 
+            "user_id": user_id,
+            "deleted_records": deleted_counts
+        }
     )
-    return {"message": f"User {user_id} has been deleted"}
+    
+    return {
+        "message": f"User '{username}' has been permanently deleted",
+        "deleted_user": username,
+        "user_id": user_id,
+        "deleted_records": deleted_counts
+    }
 
 # ---------- User activity (ADMIN ONLY) ----------
 @router.get("/users/{user_id}/activity")
@@ -248,10 +297,34 @@ async def get_security_alerts(current_user=Depends(get_current_admin)):
 
 # ---------- Login logs (ADMIN ONLY) ----------
 @router.get("/login-logs")
-async def get_login_logs(current_user=Depends(get_current_admin)):
+async def get_login_logs(
+    page: int = 1,
+    page_size: int = 50,
+    username: Optional[str] = None,
+    current_user=Depends(get_current_admin)
+):
     db = Database()
-    logs = db.get_login_logs(200)
-    return logs
+    logs = db.get_login_logs(page_size * page)
+    
+    # Filter by username if provided
+    if username:
+        logs = [log for log in logs if username.lower() in log['username'].lower()]
+    
+    total = len(logs)
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+    
+    # Paginate
+    start = (page - 1) * page_size
+    end = start + page_size
+    paginated_logs = logs[start:end]
+    
+    return {
+        "logs": paginated_logs,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages
+    }
 
 # ---------- Override history (ADMIN ONLY - for audit purposes) ----------
 @router.get("/overrides")
