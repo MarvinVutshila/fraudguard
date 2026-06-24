@@ -1,11 +1,10 @@
-# main.py (final, with SPA fallback and activity tracking middleware)
-
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from contextlib import asynccontextmanager
 import logging
 import os
+from datetime import datetime  # ✅ ADD THIS
 from pydantic import BaseModel
 from fraud_detection.core.config import MODELS_DIR, DB_DSN, LOG_LEVEL, APPROVE_THRESHOLD, BLOCK_THRESHOLD
 from fraud_detection.ml.inference.model_loader import load_artefacts
@@ -38,11 +37,9 @@ async def lifespan(app: FastAPI):
         create_tables()
         db = Database()
         
-        # Ensure refresh tokens table exists
         if hasattr(db, 'create_refresh_tokens_table'):
             db.create_refresh_tokens_table()
         
-        # Ensure TOTP columns exist
         if hasattr(db, 'add_totp_columns'):
             db.add_totp_columns()
 
@@ -79,7 +76,7 @@ app = FastAPI(
 # ---- CORS Middleware ----
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update with your frontend URL in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -99,7 +96,7 @@ if not os.path.exists(frontend_path):
     frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
 logger.info(f"Frontend path set to: {frontend_path}")
 
-# 3. Mount static assets (JS, CSS, images) under /assets
+# 3. Mount static assets
 assets_path = os.path.join(frontend_path, "assets")
 if os.path.exists(assets_path):
     app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
@@ -127,6 +124,13 @@ async def track_last_active_and_check_blocked(request: Request, call_next):
             payload = verify_token(token)
             username = payload.get("sub")
             
+            # ✅ Get token issued at time
+            token_iat = payload.get("iat")
+            if token_iat:
+                token_issued_at = datetime.fromtimestamp(token_iat)
+            else:
+                token_issued_at = None
+            
             if username:
                 db = Database()
                 user = db.get_user_by_username(username)
@@ -134,21 +138,35 @@ async def track_last_active_and_check_blocked(request: Request, call_next):
                 if user:
                     # 🔒 IMMEDIATE BLOCK CHECK - This runs on EVERY request
                     if user.get('status') == 'blocked':
-                        logger.warning(f"🚫 Blocked user attempted to access: {username} - {request.url.path}")
+                        blocked_at = user.get('blocked_at')
+                        
+                        # ✅ If token was issued BEFORE the user was blocked, reject immediately
+                        if blocked_at and token_issued_at:
+                            if isinstance(blocked_at, str):
+                                blocked_at = datetime.fromisoformat(blocked_at.replace('Z', '+00:00'))
+                            
+                            if token_issued_at < blocked_at:
+                                logger.warning(f"🚫 Blocked user (token issued before block) attempted: {username} - {request.url.path}")
+                                return JSONResponse(
+                                    status_code=403,
+                                    content={"detail": "Your account was blocked. Please log in again."}
+                                )
+                        
+                        logger.warning(f"🚫 Blocked user attempted: {username} - {request.url.path}")
                         return JSONResponse(
                             status_code=403,
                             content={"detail": "Your account has been blocked. Please contact support."}
                         )
                     
                     if user.get('status') == 'deleted':
-                        logger.warning(f"🚫 Deleted user attempted to access: {username} - {request.url.path}")
+                        logger.warning(f"🚫 Deleted user attempted: {username} - {request.url.path}")
                         return JSONResponse(
                             status_code=403,
                             content={"detail": "Your account has been deleted."}
                         )
                     
                     if user.get('status') in ['pending', 'rejected']:
-                        logger.warning(f"🚫 {user.get('status')} user attempted to access: {username} - {request.url.path}")
+                        logger.warning(f"🚫 {user.get('status')} user attempted: {username} - {request.url.path}")
                         return JSONResponse(
                             status_code=403,
                             content={"detail": f"Your account is {user.get('status')}. Please contact support."}
@@ -166,7 +184,6 @@ async def track_last_active_and_check_blocked(request: Request, call_next):
 # 5. Catch‑all route: serve static files or index.html
 @app.get("/{full_path:path}")
 async def serve_spa(request: Request, full_path: str):
-    # Skip API paths that might have been missed
     if full_path.startswith("admin/") or full_path.startswith("auth/") or full_path.startswith("api/"):
         raise HTTPException(status_code=404, detail="API endpoint not found")
     
