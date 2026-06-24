@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import ThemeToggle from './ThemeToggle';
 
 export default function Navbar({ title, onRefresh }) {
   const navigate = useNavigate();
@@ -24,7 +25,8 @@ export default function Navbar({ title, onRefresh }) {
       </div>
       <div className="navbar-right">
         <button className="icon-btn" onClick={onRefresh} title="Refresh">↺</button>
-        <button className="icon-btn" onClick={() => { /* toggle theme */ }}>☀️</button>
+        {/* ThemeToggle component added here */}
+        <ThemeToggle />
         <div className="user-pill">
           <span className="user-avatar">👤</span>
           <span className="user-name">Analyst</span>
