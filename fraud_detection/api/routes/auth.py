@@ -1,16 +1,15 @@
 import os
 import json
 import logging
-import re
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
-from fastapi import APIRouter, HTTPException, status, Depends, Request, Response
+from fastapi import APIRouter, HTTPException, status, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 from fraud_detection.database.postgres_db import get_connection, Database
 from .auth_models import (
-    LoginRequest, UserRegister, RefreshTokenRequest,
+    LoginRequest, UserRegister,
     TwoFactorSetupRequest, TwoFactorVerifyRequest, TwoFactorDisableRequest
 )
 import pyotp
@@ -27,15 +26,15 @@ if not SECRET_KEY:
     raise ValueError("JWT_SECRET_KEY environment variable not set")
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30  # 30 minutes
-REFRESH_TOKEN_EXPIRE_DAYS = 7      # 7 days
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+REFRESH_TOKEN_EXPIRE_DAYS = 7
 MAX_LOGIN_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
 
 security = HTTPBearer()
 pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 
-# In-memory rate limiting (use Redis in production)
+# In-memory rate limiting
 login_attempts: Dict[str, list] = {}
 
 # ---------- Helper Functions ----------
@@ -77,17 +76,14 @@ def verify_refresh_token(token: str) -> dict:
         raise HTTPException(status_code=401, detail=f"Invalid refresh token: {str(e)}")
 
 def check_rate_limit(username: str, ip: str) -> tuple[bool, Optional[int]]:
-    """Check if login attempts exceed limit. Returns (allowed, remaining_seconds)"""
     key = f"{username}:{ip}"
     now = datetime.utcnow().timestamp()
     window_start = now - (LOCKOUT_MINUTES * 60)
     
-    # Clean old attempts
     if key in login_attempts:
         login_attempts[key] = [t for t in login_attempts[key] if t > window_start]
         
         if len(login_attempts[key]) >= MAX_LOGIN_ATTEMPTS:
-            # Calculate remaining lockout time
             oldest_attempt = min(login_attempts[key])
             remaining = int(LOCKOUT_MINUTES * 60 - (now - oldest_attempt))
             return False, max(0, remaining)
@@ -106,13 +102,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/login")
 async def login(creds: LoginRequest, request: Request):
-    """
-    Authenticate a user with rate limiting, password validation, and 2FA support.
-    """
+    """Authenticate a user with rate limiting and 2FA support."""
     user_agent = request.headers.get("user-agent", "unknown")
     client_ip = request.client.host if request.client else "0.0.0.0"
     
-    # Check rate limit
     allowed, remaining = check_rate_limit(creds.username, client_ip)
     if not allowed:
         raise HTTPException(
@@ -142,7 +135,6 @@ async def login(creds: LoginRequest, request: Request):
                 if status == "active" and verify_password(creds.password, hashed):
                     success = True
 
-    # Record attempt
     record_login_attempt(creds.username, client_ip, success)
 
     if not success:
@@ -150,19 +142,17 @@ async def login(creds: LoginRequest, request: Request):
         db.log_login_attempt(creds.username, False, client_ip, user_agent)
         
         if status == "pending":
-            raise HTTPException(403, detail="Account pending admin approval. You will be notified once approved.")
+            raise HTTPException(403, detail="Account pending admin approval.")
         elif status == "rejected":
-            raise HTTPException(403, detail="Account has been rejected by admin. Please contact support.")
+            raise HTTPException(403, detail="Account rejected by admin.")
         elif status == "blocked":
-            raise HTTPException(403, detail="Account has been blocked. Please contact support.")
+            raise HTTPException(403, detail="Account blocked.")
         else:
             raise HTTPException(401, detail="Invalid credentials")
 
-    # Create tokens
     access_token = create_access_token({"sub": user, "role": role})
     refresh_token = create_refresh_token({"sub": user, "role": role})
     
-    # Store refresh token
     db = Database()
     db.log_login_attempt(creds.username, True, client_ip, user_agent)
     db.log_user_activity(user, "login", {"ip": client_ip, "user_agent": user_agent})
@@ -174,8 +164,7 @@ async def login(creds: LoginRequest, request: Request):
         "access_token": access_token,
         "refresh_token": refresh_token,
         "token_type": "bearer",
-        "role": role,
-        "totp_enabled": totp_enabled
+        "role": role
     }
     
     if totp_enabled:
@@ -186,24 +175,30 @@ async def login(creds: LoginRequest, request: Request):
 @router.post("/refresh")
 async def refresh_token(request: Request):
     """Get a new access token using a refresh token."""
-    data = await request.json()
-    refresh_token = data.get('refresh_token')
+    try:
+        data = await request.json()
+        refresh_token = data.get('refresh_token')
+    except:
+        raise HTTPException(400, "Invalid request body")
     
     if not refresh_token:
         raise HTTPException(400, "Refresh token required")
     
-    # Verify refresh token
-    payload = verify_refresh_token(refresh_token)
+    try:
+        payload = jwt.decode(refresh_token, REFRESH_SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise HTTPException(401, "Invalid token type")
+    except JWTError as e:
+        raise HTTPException(401, f"Invalid refresh token: {str(e)}")
+    
     username = payload.get("sub")
     role = payload.get("role", "analyst")
     
-    # Check if refresh token is valid in database
     db = Database()
     stored_token = db.get_refresh_token(username, refresh_token)
     if not stored_token:
         raise HTTPException(401, "Invalid or revoked refresh token")
     
-    # Create new access token
     new_access_token = create_access_token({"sub": username, "role": role})
     
     return {
@@ -213,9 +208,8 @@ async def refresh_token(request: Request):
 
 @router.post("/register")
 async def register(user: UserRegister, request: Request):
-    """Register a new user with password validation."""
+    """Register a new user."""
     client_ip = request.client.host if request.client else "0.0.0.0"
-    user_agent = request.headers.get("user-agent", "unknown")
 
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -244,8 +238,13 @@ async def register(user: UserRegister, request: Request):
 async def logout(request: Request, payload: dict = Depends(verify_token)):
     """Log out and revoke refresh token."""
     username = payload.get("sub")
-    data = await request.json() if request.method == "POST" else {}
-    refresh_token = data.get('refresh_token')
+    
+    refresh_token = None
+    try:
+        data = await request.json()
+        refresh_token = data.get('refresh_token')
+    except:
+        pass
     
     db = Database()
     if refresh_token:
@@ -281,10 +280,7 @@ async def setup_2fa(payload: dict = Depends(verify_token)):
     """Setup 2FA for the current user."""
     username = payload.get("sub")
     
-    # Generate secret
     secret = pyotp.random_base32()
-    
-    # Generate QR code
     totp = pyotp.TOTP(secret)
     provisioning_uri = totp.provisioning_uri(username, issuer_name="FraudGuard")
     
@@ -293,7 +289,6 @@ async def setup_2fa(payload: dict = Depends(verify_token)):
     qr.save(buffered, format="PNG")
     qr_base64 = base64.b64encode(buffered.getvalue()).decode()
     
-    # Store secret temporarily in database with status 'pending'
     db = Database()
     db.store_totp_secret(username, secret)
     
@@ -305,7 +300,7 @@ async def setup_2fa(payload: dict = Depends(verify_token)):
 
 @router.post("/2fa/verify-setup")
 async def verify_2fa_setup(request: TwoFactorSetupRequest, payload: dict = Depends(verify_token)):
-    """Verify and enable 2FA for the user."""
+    """Verify and enable 2FA."""
     username = payload.get("sub")
     
     db = Database()
@@ -317,10 +312,7 @@ async def verify_2fa_setup(request: TwoFactorSetupRequest, payload: dict = Depen
     if not totp.verify(request.code):
         raise HTTPException(400, "Invalid verification code")
     
-    # Enable 2FA
     db.enable_2fa(username, secret)
-    
-    # Log activity
     db.log_user_activity(username, "2fa_enabled", {"message": "2FA enabled"})
     
     return {"message": "2FA enabled successfully"}
@@ -341,18 +333,15 @@ async def verify_2fa(request: TwoFactorVerifyRequest):
     
     totp = pyotp.TOTP(user['totp_secret'])
     if not totp.verify(code):
-        # Log failed attempt
         db.log_user_activity(username, "2fa_failed", {"message": "Invalid 2FA code"})
         raise HTTPException(400, "Invalid 2FA code")
     
-    # Log success
     db.log_user_activity(username, "2fa_verified", {"message": "2FA verified"})
-    
     return {"verified": True}
 
 @router.post("/2fa/disable")
 async def disable_2fa(request: TwoFactorDisableRequest, payload: dict = Depends(verify_token)):
-    """Disable 2FA for the user."""
+    """Disable 2FA."""
     username = payload.get("sub")
     
     db = Database()
@@ -369,5 +358,4 @@ async def disable_2fa(request: TwoFactorDisableRequest, payload: dict = Depends(
     
     db.disable_2fa(username)
     db.log_user_activity(username, "2fa_disabled", {"message": "2FA disabled"})
-    
     return {"message": "2FA disabled successfully"}
