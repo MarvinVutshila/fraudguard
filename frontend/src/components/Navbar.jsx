@@ -7,12 +7,10 @@ export default function Navbar({ title, onRefresh }) {
 
   const logout = async () => {
     try {
-      // Call the logout endpoint to record the event
       await api.post('/auth/logout');
     } catch (e) {
       console.warn('Logout API call failed:', e);
     }
-    // Remove token and redirect to login regardless
     localStorage.removeItem('fg_token');
     navigate('/login');
   };
@@ -25,7 +23,6 @@ export default function Navbar({ title, onRefresh }) {
       </div>
       <div className="navbar-right">
         <button className="icon-btn" onClick={onRefresh} title="Refresh">↺</button>
-        {/* ThemeToggle component added here */}
         <ThemeToggle />
         <div className="user-pill">
           <span className="user-avatar">👤</span>
