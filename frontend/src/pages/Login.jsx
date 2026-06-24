@@ -9,6 +9,14 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // 2FA state
+  const [show2FA, setShow2FA] = useState(false);
+  const [twoFACode, setTwoFACode] = useState('');
+  const [tempUsername, setTempUsername] = useState('');
+  const [tempAccessToken, setTempAccessToken] = useState('');
+  const [tempRefreshToken, setTempRefreshToken] = useState('');
+  const [tempRole, setTempRole] = useState('');
+
   // Signup modal state
   const [showSignup, setShowSignup] = useState(false);
   const [signupEmail, setSignupEmail] = useState('');
@@ -24,13 +32,51 @@ export default function Login() {
     setLoading(true);
     try {
       const res = await api.post('/auth/login', { username: email, password });
-      const { access_token } = res.data;
+      const { access_token, refresh_token, role, totp_enabled, requires_2fa } = res.data;
+      
+      if (requires_2fa && totp_enabled) {
+        // Store temp data and show 2FA modal
+        setTempUsername(email);
+        setTempAccessToken(access_token);
+        setTempRefreshToken(refresh_token);
+        setTempRole(role);
+        setShow2FA(true);
+        setLoading(false);
+        return;
+      }
+      
       localStorage.setItem('fg_token', access_token);
+      localStorage.setItem('fg_refresh_token', refresh_token);
+      localStorage.setItem('fg_role', role);
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.detail || 'Login failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handle2FAVerify = async () => {
+    if (!twoFACode || twoFACode.length !== 6) {
+      setError('Please enter a valid 6-digit code');
+      return;
+    }
+    
+    try {
+      const res = await api.post('/2fa/verify', {
+        username: tempUsername,
+        code: twoFACode
+      });
+      
+      if (res.data.verified) {
+        localStorage.setItem('fg_token', tempAccessToken);
+        localStorage.setItem('fg_refresh_token', tempRefreshToken);
+        localStorage.setItem('fg_role', tempRole);
+        setShow2FA(false);
+        navigate('/');
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Invalid 2FA code');
     }
   };
 
@@ -49,7 +95,7 @@ export default function Login() {
       };
       await api.post('/auth/register', payload);
       setShowSignup(false);
-      alert('Account created! You can now log in.');
+      alert('Account created! Please wait for admin approval.');
       setSignupEmail('');
       setSignupPassword('');
       setSignupConfirm('');
@@ -84,7 +130,6 @@ export default function Login() {
             </div>
           </div>
           
-          {/* ✅ FIX: Added margin-top to push text down */}
           <div className="hero-text" style={{ marginTop: '40px' }}>
             <h2>Real‑time fraud<br /><span>detection at scale.</span></h2>
             <p>Monitor every transaction, flag suspicious activity with XGBoost ML, and route borderline cases to human analysts.</p>
@@ -192,7 +237,7 @@ export default function Login() {
                 <label>Password</label>
                 <div className="input-wrap">
                   <span className="input-icon">🔒</span>
-                  <input type="password" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} placeholder="Min 6 characters" />
+                  <input type="password" value={signupPassword} onChange={(e) => setSignupPassword(e.target.value)} placeholder="Min 8 chars with uppercase, number, special" />
                 </div>
               </div>
               <div className="field">
@@ -203,12 +248,50 @@ export default function Login() {
                 </div>
               </div>
               {signupError && <div className="error-message">{signupError}</div>}
-              <div className="info-box">ℹ️ Your account will be active immediately. You can log in after registration.</div>
+              <div className="info-box">ℹ️ Your account will be created and will require admin approval before you can log in.</div>
             </div>
             <div className="modal-footer">
               <button className="btn-secondary" onClick={() => setShowSignup(false)}>Cancel</button>
               <button className="btn-primary" onClick={handleSignup} disabled={signupLoading}>
                 {signupLoading ? 'Creating…' : 'Create Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2FA Modal */}
+      {show2FA && (
+        <div className="modal-overlay open" onClick={() => setShow2FA(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-hdr">
+              <h3>🔐 Two-Factor Authentication</h3>
+              <button className="modal-close" onClick={() => setShow2FA(false)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginBottom: '1rem' }}>
+                Enter the 6-digit code from your authenticator app to complete login.
+              </p>
+              <div className="field">
+                <label>Authentication Code</label>
+                <div className="input-wrap">
+                  <span className="input-icon">🔑</span>
+                  <input
+                    type="text"
+                    value={twoFACode}
+                    onChange={(e) => setTwoFACode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="123456"
+                    maxLength="6"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              {error && <div className="error-message">{error}</div>}
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShow2FA(false)}>Cancel</button>
+              <button className="btn-primary" onClick={handle2FAVerify} disabled={twoFACode.length !== 6}>
+                Verify
               </button>
             </div>
           </div>
