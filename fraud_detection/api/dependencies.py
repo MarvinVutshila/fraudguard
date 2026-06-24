@@ -1,43 +1,37 @@
-from fastapi import HTTPException, Depends
-from fraud_detection.api.auth import verify_token
+from fraud_detection.api.routes.auth import verify_token
 from fraud_detection.database.postgres_db import Database
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer
 
-_services = None
+security = HTTPBearer()
 
-def set_services(services):
-    global _services
-    _services = services
+def get_current_user(token: str = Depends(security)):
+    """Get current user from token"""
+    try:
+        payload = verify_token(token)
+        username = payload.get("sub")
+        if not username:
+            raise HTTPException(401, "Invalid token")
+        
+        db = Database()
+        user = db.get_user_by_username(username)
+        if not user:
+            raise HTTPException(404, "User not found")
+        
+        return user
+    except Exception as e:
+        raise HTTPException(401, f"Authentication failed: {str(e)}")
+
+def get_current_admin(user=Depends(get_current_user)):
+    """Check if current user is admin"""
+    if user.get('role') != 'admin':
+        raise HTTPException(403, "Admin access required")
+    return user
 
 def get_services():
-    if _services is None:
-        raise HTTPException(status_code=503, detail="Services not initialised")
-    return _services
-
-class UserContext:
-    def __init__(self, username: str, role: str, status: str = "active"):
-        self.username = username
-        self.role = role
-        self.status = status
-
-def get_current_user(payload: dict = Depends(verify_token)) -> UserContext:
-    username = payload.get("sub")
-    role = payload.get("role", "analyst")
-    if not username:
-        raise HTTPException(401, "Invalid token")
-    
-    # Fetch user from DB to check status
-    db = Database()
-    user = db.get_user_by_username(username)
-    if not user:
-        raise HTTPException(401, "User not found")
-    
-    # If user is blocked, rejected, or deleted, deny access
-    if user['status'] not in ['active', 'pending']:
-        raise HTTPException(403, detail=f"Account is {user['status']}. Access denied.")
-    
-    return UserContext(username, role, user['status'])
-
-def get_current_admin(current_user: UserContext = Depends(get_current_user)) -> UserContext:
-    if current_user.role != "admin":
-        raise HTTPException(403, "Admin access required")
-    return current_user
+    """Get services - implement based on your app"""
+    # This should return your services instance
+    # For now, return a placeholder
+    class Services:
+        pass
+    return Services()
