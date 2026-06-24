@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
+import { ThemeProvider } from './context/ThemeContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ApprovalQueue from './pages/ApprovalQueue';
@@ -48,29 +49,31 @@ function MainLayout({ children }) {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/*"
-          element={
-            <PrivateRoute>
-              <MainLayout>
-                <Routes>
-                  <Route path="/" element={<Dashboard />} />
-                  <Route path="/approval" element={<ApprovalQueue />} />
-                  <Route path="/history" element={<History />} />
-                  <Route path="/predict" element={<Predict />} />
-                  <Route path="/batch" element={<BatchAnalysis />} />
-                  <Route path="/model" element={<ModelInfo />} />
-                  <Route path="/admin" element={<AdminPanel />} />
-                </Routes>
-              </MainLayout>
-            </PrivateRoute>
-          }
-        />
-      </Routes>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/*"
+            element={
+              <PrivateRoute>
+                <MainLayout>
+                  <Routes>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/approval" element={<ApprovalQueue />} />
+                    <Route path="/history" element={<History />} />
+                    <Route path="/predict" element={<Predict />} />
+                    <Route path="/batch" element={<BatchAnalysis />} />
+                    <Route path="/model" element={<ModelInfo />} />
+                    <Route path="/admin" element={<AdminPanel />} />
+                  </Routes>
+                </MainLayout>
+              </PrivateRoute>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 
