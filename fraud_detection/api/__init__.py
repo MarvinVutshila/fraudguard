@@ -32,5 +32,5 @@ async def upload_avatar(file: UploadFile = File(...), current_user=Depends(get_c
         conn.commit()
     return {"avatar": b64}
 
-# ✅ This is the key - export router so it can be imported
+# ✅ Export router
 __all__ = ['router']
