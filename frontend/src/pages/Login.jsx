@@ -30,8 +30,18 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    
+    console.log('🔐 Attempting login...');
+    console.log('📧 Email:', email);
+    
     try {
-      const res = await api.post('/auth/login', { username: email, password });
+      const res = await api.post('/auth/login', { 
+        username: email, 
+        password: password 
+      });
+      
+      console.log('✅ Login response:', res.data);
+      
       const { access_token, refresh_token, role, totp_enabled, requires_2fa } = res.data;
       
       if (requires_2fa && totp_enabled) {
@@ -46,11 +56,30 @@ export default function Login() {
       }
       
       localStorage.setItem('fg_token', access_token);
-      localStorage.setItem('fg_refresh_token', refresh_token);
-      localStorage.setItem('fg_role', role);
+      if (refresh_token) {
+        localStorage.setItem('fg_refresh_token', refresh_token);
+      }
+      localStorage.setItem('fg_role', role || 'analyst');
+      
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Login failed');
+      console.error('❌ Login error:', err);
+      console.error('📡 Response:', err.response);
+      console.error('📡 Response data:', err.response?.data);
+      
+      if (err.code === 'ERR_NETWORK') {
+        setError('Cannot connect to server. Please check your network connection.');
+      } else if (err.response?.status === 401) {
+        setError('Invalid email or password. Please try again.');
+      } else if (err.response?.status === 429) {
+        setError('Too many login attempts. Please wait a few minutes.');
+      } else if (err.response?.status === 403) {
+        setError(err.response?.data?.detail || 'Account is pending approval or has been blocked.');
+      } else if (err.response?.status === 500) {
+        setError('Server error. Please try again later.');
+      } else {
+        setError(err.response?.data?.detail || 'Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -76,6 +105,7 @@ export default function Login() {
         navigate('/');
       }
     } catch (err) {
+      console.error('❌ 2FA error:', err);
       setError(err.response?.data?.detail || 'Invalid 2FA code');
     }
   };
@@ -101,6 +131,7 @@ export default function Login() {
       setSignupConfirm('');
       setSignupAvatar(null);
     } catch (err) {
+      console.error('❌ Signup error:', err);
       setSignupError(err.response?.data?.detail || 'Registration failed');
     } finally {
       setSignupLoading(false);
