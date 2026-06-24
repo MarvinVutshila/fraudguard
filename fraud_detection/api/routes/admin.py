@@ -98,7 +98,7 @@ async def update_user_role(user_id: int, update: RoleUpdate, current_user=Depend
     logger.info(f"✅ User {user['username']} role updated to {update.role}")
     return {"message": f"User {user_id} role updated to {update.role}"}
 
-# ---------- Block user (ADMIN ONLY) ----------
+# ---------- Block user (ADMIN ONLY) - WITH TOKEN REVOCATION ----------
 @router.post("/users/{user_id}/block")
 async def block_user(user_id: int, block_data: BlockRequest, current_user=Depends(get_current_admin)):
     logger.info(f"📊 block_user called for user_id: {user_id}")
@@ -109,14 +109,21 @@ async def block_user(user_id: int, block_data: BlockRequest, current_user=Depend
     if user['status'] == 'deleted':
         raise HTTPException(400, "Cannot block a deleted user")
     
+    # Block the user
     db.block_user(user_id, block_data.reason)
+    
+    # 🔒 REVOKE ALL REFRESH TOKENS - This will force them to re-login
+    db.revoke_all_refresh_tokens(user['username'])
+    logger.info(f"🔒 Revoked all refresh tokens for {user['username']}")
+    
+    # Log activity
     db.log_user_activity(
         current_user.get('sub', 'admin'), 
         "block_user", 
         {"target": user['username'], "reason": block_data.reason}
     )
-    logger.info(f"✅ User {user['username']} blocked")
-    return {"message": f"User {user_id} has been blocked"}
+    logger.info(f"✅ User {user['username']} blocked and all sessions invalidated")
+    return {"message": f"User {user_id} has been blocked and logged out"}
 
 # ---------- Unblock user (ADMIN ONLY) ----------
 @router.post("/users/{user_id}/unblock")
