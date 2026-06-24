@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
+import { useTheme } from '../context/ThemeContext';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tiny utilities
@@ -40,13 +41,13 @@ const SEVERITY_COLORS = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sub-components
+// Sub-components (with dark mode support)
 // ─────────────────────────────────────────────────────────────────────────────
 
 function StatCard({ icon, label, value, sub, color = 'var(--purple)' }) {
   return (
     <div style={{
-      background: 'var(--card-bg, #111929)',
+      background: 'var(--card-bg)',
       border: `1px solid ${color}33`,
       borderRadius: 12,
       padding: '1.25rem 1.5rem',
@@ -59,8 +60,8 @@ function StatCard({ icon, label, value, sub, color = 'var(--purple)' }) {
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: color, borderRadius: '12px 12px 0 0' }} />
       <div style={{ fontSize: '1.6rem', marginBottom: 2 }}>{icon}</div>
       <div style={{ fontSize: '2rem', fontWeight: 700, color, letterSpacing: '-0.03em', lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted, #8892a4)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-      {sub && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #8892a4)', marginTop: 2 }}>{sub}</div>}
+      <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
+      {sub && <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }
@@ -122,7 +123,7 @@ function Spinner() {
 
 function EmptyState({ icon = '📭', text }) {
   return (
-    <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted, #8892a4)' }}>
+    <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
       <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>{icon}</div>
       <div style={{ fontSize: '0.9rem' }}>{text}</div>
     </div>
@@ -162,8 +163,8 @@ function PaginationBtn({ children, onClick, disabled, active }) {
       style={{
         padding: '5px 12px', borderRadius: 7,
         background: active ? 'var(--purple, #7c3aed)' : 'transparent',
-        border: `1px solid ${active ? 'var(--purple)' : 'var(--border, #1e2a3a)'}`,
-        color: active ? '#fff' : disabled ? 'var(--text-muted)' : 'var(--text, #e2e8f0)',
+        border: `1px solid ${active ? 'var(--purple)' : 'var(--border)'}`,
+        color: active ? '#fff' : disabled ? 'var(--text-muted)' : 'var(--text)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         fontSize: '0.8rem', fontWeight: 500,
         opacity: disabled ? 0.4 : 1,
@@ -201,23 +202,23 @@ function Modal({ title, onClose, children, width = 620 }) {
     >
       <style>{`@keyframes fadeIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}`}</style>
       <div style={{
-        background: 'var(--card-bg, #111929)',
-        border: '1px solid var(--border, #1e2a3a)',
+        background: 'var(--card-bg)',
+        border: '1px solid var(--border)',
         borderRadius: 16, width: '100%', maxWidth: width,
         maxHeight: '90vh', overflowY: 'auto',
-        boxShadow: '0 25px 80px rgba(0,0,0,0.5)',
+        boxShadow: 'var(--shadow)',
       }}>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '1.25rem 1.5rem',
-          borderBottom: '1px solid var(--border, #1e2a3a)',
+          borderBottom: '1px solid var(--border)',
         }}>
-          <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text, #e2e8f0)' }}>{title}</div>
+          <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text)' }}>{title}</div>
           <button
             onClick={onClose}
             style={{
               background: 'transparent', border: 'none', cursor: 'pointer',
-              color: 'var(--text-muted, #8892a4)', fontSize: '1.3rem', lineHeight: 1,
+              color: 'var(--text-muted)', fontSize: '1.3rem', lineHeight: 1,
               padding: '2px 6px', borderRadius: 6,
             }}
           >×</button>
@@ -232,8 +233,8 @@ function ConfirmModal({ message, subtext, onConfirm, onCancel, danger = true, la
   const [extra, setExtra] = useState('');
   return (
     <Modal title={danger ? '⚠️ Confirm Action' : 'Confirm Action'} onClose={onCancel} width={440}>
-      <div style={{ color: 'var(--text, #e2e8f0)', marginBottom: 12 }}>{message}</div>
-      {subtext && <div style={{ color: 'var(--text-muted, #8892a4)', fontSize: '0.85rem', marginBottom: 16 }}>{subtext}</div>}
+      <div style={{ color: 'var(--text)', marginBottom: 12 }}>{message}</div>
+      {subtext && <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 16 }}>{subtext}</div>}
       {extraField && (
         <div style={{ marginBottom: 16 }}>
           <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: 6, color: 'var(--text-muted)' }}>
@@ -245,8 +246,8 @@ function ConfirmModal({ message, subtext, onConfirm, onCancel, danger = true, la
             placeholder={extraField.placeholder}
             style={{
               width: '100%', boxSizing: 'border-box',
-              background: 'var(--bg, #0a0f1e)', border: '1px solid var(--border, #1e2a3a)',
-              borderRadius: 8, padding: '8px 12px', color: 'var(--text, #e2e8f0)', fontSize: '0.9rem',
+              background: 'var(--bg)', border: '1px solid var(--border)',
+              borderRadius: 8, padding: '8px 12px', color: 'var(--text)', fontSize: '0.9rem',
             }}
           />
         </div>
@@ -293,7 +294,6 @@ function UserDetailModal({ user, onClose }) {
 
   return (
     <Modal title={`👤 ${user.username}`} onClose={onClose} width={700}>
-      {/* Tab bar */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
         {tabs.map((t) => (
           <button
@@ -302,8 +302,8 @@ function UserDetailModal({ user, onClose }) {
             style={{
               padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
               fontWeight: 600, fontSize: '0.82rem', textTransform: 'capitalize',
-              background: activeTab === t ? 'var(--purple, #7c3aed)' : 'var(--border, #1e2a3a)',
-              color: activeTab === t ? '#fff' : 'var(--text-muted, #8892a4)',
+              background: activeTab === t ? 'var(--purple, #7c3aed)' : 'var(--border)',
+              color: activeTab === t ? '#fff' : 'var(--text-muted)',
               transition: 'all 0.15s',
             }}
           >
@@ -323,9 +323,9 @@ function UserDetailModal({ user, onClose }) {
             ['Last Active', ago(user.last_active)],
             ['Recent Failed Logins', user.recent_failed_logins ?? 0],
           ].map(([k, v]) => (
-            <div key={k} style={{ background: 'var(--bg, #0a0f1e)', borderRadius: 10, padding: '12px 14px' }}>
+            <div key={k} style={{ background: 'var(--bg)', borderRadius: 10, padding: '12px 14px' }}>
               <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{k}</div>
-              <div style={{ fontWeight: 500, color: 'var(--text, #e2e8f0)' }}>{v}</div>
+              <div style={{ fontWeight: 500, color: 'var(--text)' }}>{v}</div>
             </div>
           ))}
           {user.blocked_reason && (
@@ -345,7 +345,7 @@ function UserDetailModal({ user, onClose }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {activity.activity.map((a, i) => (
               <div key={i} style={{
-                background: 'var(--bg, #0a0f1e)', borderRadius: 10, padding: '12px 14px',
+                background: 'var(--bg)', borderRadius: 10, padding: '12px 14px',
                 borderLeft: '3px solid var(--purple, #7c3aed)',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -378,7 +378,7 @@ function UserDetailModal({ user, onClose }) {
               </thead>
               <tbody>
                 {activity.login_logs.map((l, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--border, #1e2a3a)' }}>
+                  <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '8px 10px' }}>
                       {l.success
                         ? <span style={{ color: '#34d399', fontWeight: 600 }}>✓ Success</span>
@@ -429,9 +429,9 @@ function RoleModal({ user, onClose, onSaved }) {
           value={role}
           onChange={(e) => setRole(e.target.value)}
           style={{
-            width: '100%', background: 'var(--bg, #0a0f1e)',
-            border: '1px solid var(--border, #1e2a3a)', borderRadius: 8,
-            padding: '10px 12px', color: 'var(--text, #e2e8f0)', fontSize: '0.9rem',
+            width: '100%', background: 'var(--bg)',
+            border: '1px solid var(--border)', borderRadius: 8,
+            padding: '10px 12px', color: 'var(--text)', fontSize: '0.9rem',
           }}
         >
           <option value="admin">Admin</option>
@@ -495,7 +495,7 @@ function AlertsPanel({ onAck }) {
         const color = SEVERITY_COLORS[a.severity] || '#8892a4';
         return (
           <div key={a.id} style={{
-            background: 'var(--bg, #0a0f1e)',
+            background: 'var(--bg)',
             border: `1px solid ${color}44`,
             borderLeft: `4px solid ${color}`,
             borderRadius: 10, padding: '14px 16px',
@@ -511,7 +511,7 @@ function AlertsPanel({ onAck }) {
                 </span>
                 <SeverityBadge severity={a.severity} />
               </div>
-              <div style={{ color: 'var(--text, #e2e8f0)', fontSize: '0.85rem', marginBottom: 4 }}>
+              <div style={{ color: 'var(--text)', fontSize: '0.85rem', marginBottom: 4 }}>
                 <span style={{ color: 'var(--purple, #7c3aed)', fontWeight: 600 }}>@{a.username}</span>
                 {' — '}{a.message}
               </div>
@@ -537,7 +537,7 @@ function AlertsPanel({ onAck }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Users Table Tab
+// Users Table Tab with ADMIN PROTECTION
 // ─────────────────────────────────────────────────────────────────────────────
 
 function UsersTable({ onRefreshSummary }) {
@@ -551,10 +551,9 @@ function UsersTable({ onRefreshSummary }) {
   const [statusFilter, setStatusFilter] = useState('');
   const [searchInput, setSearchInput] = useState('');
 
-  // Modals
   const [viewUser, setViewUser] = useState(null);
   const [editRoleUser, setEditRoleUser] = useState(null);
-  const [confirmAction, setConfirmAction] = useState(null); // { type, user }
+  const [confirmAction, setConfirmAction] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -581,7 +580,6 @@ function UsersTable({ onRefreshSummary }) {
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
-  // Debounce search
   const searchTimer = useRef();
   const handleSearchInput = (val) => {
     setSearchInput(val);
@@ -592,7 +590,17 @@ function UsersTable({ onRefreshSummary }) {
     }, 350);
   };
 
+  // ═══════════════════════════════════════════════════════════
+  // 🔒 ADMIN PROTECTION: Block destructive actions on admins
+  // ═══════════════════════════════════════════════════════════
   const executeAction = async (type, user, extra) => {
+    // 🔒 CRITICAL: Prevent any action on admin users
+    if (user.role === 'admin') {
+      showToast('⚠️ Admin users cannot be modified, removed, or blocked for security reasons.', false);
+      setConfirmAction(null);
+      return;
+    }
+
     setActionLoading(true);
     try {
       if (type === 'block') {
@@ -615,9 +623,17 @@ function UsersTable({ onRefreshSummary }) {
     }
   };
 
+  // Check if action is allowed
+  const isActionAllowed = (user, action) => {
+    // 🔒 NEVER allow destructive actions on admins
+    if (user.role === 'admin') return false;
+    // Additional checks for specific actions
+    if (action === 'delete' && user.status === 'deleted') return false;
+    return true;
+  };
+
   return (
     <div>
-      {/* Toast */}
       {toast && (
         <div style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 2000,
@@ -630,7 +646,6 @@ function UsersTable({ onRefreshSummary }) {
         </div>
       )}
 
-      {/* Filters */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: '1 1 200px' }}>
           <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }}>🔍</span>
@@ -640,7 +655,7 @@ function UsersTable({ onRefreshSummary }) {
             placeholder="Search username…"
             style={{
               width: '100%', boxSizing: 'border-box',
-              background: 'var(--bg, #0a0f1e)', border: '1px solid var(--border, #1e2a3a)',
+              background: 'var(--bg)', border: '1px solid var(--border)',
               borderRadius: 9, padding: '9px 12px 9px 36px', color: 'var(--text)', fontSize: '0.87rem',
             }}
           />
@@ -655,7 +670,6 @@ function UsersTable({ onRefreshSummary }) {
         </span>
       </div>
 
-      {/* Table */}
       {loading ? <Spinner /> : users.length === 0 ? (
         <EmptyState icon="👥" text="No users match your filters" />
       ) : (
@@ -667,51 +681,101 @@ function UsersTable({ onRefreshSummary }) {
                   <th key={h} style={{
                     textAlign: 'left', padding: '10px 12px', color: 'var(--text-muted)',
                     fontWeight: 600, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em',
-                    borderBottom: '1px solid var(--border, #1e2a3a)', whiteSpace: 'nowrap',
+                    borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap',
                   }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
-                <tr key={u.id} style={{ borderBottom: '1px solid var(--border, #1e2a3a)', transition: 'background 0.1s' }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg, #0a0f1e)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                >
-                  <td style={{ padding: '12px 12px' }}>
-                    <div style={{ fontWeight: 700, color: 'var(--text)' }}>@{u.username}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ID #{u.id}</div>
-                  </td>
-                  <td style={{ padding: '12px 12px' }}><RoleBadge role={u.role} /></td>
-                  <td style={{ padding: '12px 12px' }}><Badge status={u.status} /></td>
-                  <td style={{ padding: '12px 12px', color: 'var(--text-muted)', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>{ago(u.last_active)}</td>
-                  <td style={{ padding: '12px 12px', textAlign: 'center' }}>
-                    {u.recent_failed_logins > 5
-                      ? <span style={{ color: '#ef4444', fontWeight: 700 }}>🔴 {u.recent_failed_logins}</span>
-                      : u.recent_failed_logins > 0
-                        ? <span style={{ color: '#f59e0b', fontWeight: 600 }}>⚠️ {u.recent_failed_logins}</span>
-                        : <span style={{ color: 'var(--text-muted)' }}>—</span>}
-                  </td>
-                  <td style={{ padding: '12px 12px', color: 'var(--text-muted)', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>{fmt(u.created_at)}</td>
-                  <td style={{ padding: '12px 12px' }}>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <ActionBtn onClick={() => setViewUser(u)} title="View details">👁</ActionBtn>
-                      <ActionBtn onClick={() => setEditRoleUser(u)} title="Edit role">✏️</ActionBtn>
-                      {u.status === 'blocked'
-                        ? <ActionBtn onClick={() => setConfirmAction({ type: 'unblock', user: u })} title="Unblock" color="#34d399">🔓</ActionBtn>
-                        : <ActionBtn onClick={() => setConfirmAction({ type: 'block', user: u })} title="Block" color="#f59e0b" disabled={u.status === 'deleted'}>🔒</ActionBtn>
-                      }
-                      <ActionBtn onClick={() => setConfirmAction({ type: 'delete', user: u })} title="Delete" color="#ef4444" disabled={u.status === 'deleted'}>🗑</ActionBtn>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {users.map((u) => {
+                const isAdmin = u.role === 'admin';
+                return (
+                  <tr key={u.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.1s' }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <td style={{ padding: '12px 12px' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--text)' }}>@{u.username}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>ID #{u.id}</div>
+                      {isAdmin && (
+                        <div style={{ fontSize: '0.6rem', color: 'var(--purple)', fontWeight: 700, marginTop: 2 }}>
+                          🔒 Protected
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: '12px 12px' }}><RoleBadge role={u.role} /></td>
+                    <td style={{ padding: '12px 12px' }}><Badge status={u.status} /></td>
+                    <td style={{ padding: '12px 12px', color: 'var(--text-muted)', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>{ago(u.last_active)}</td>
+                    <td style={{ padding: '12px 12px', textAlign: 'center' }}>
+                      {u.recent_failed_logins > 5
+                        ? <span style={{ color: '#ef4444', fontWeight: 700 }}>🔴 {u.recent_failed_logins}</span>
+                        : u.recent_failed_logins > 0
+                          ? <span style={{ color: '#f59e0b', fontWeight: 600 }}>⚠️ {u.recent_failed_logins}</span>
+                          : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '12px 12px', color: 'var(--text-muted)', whiteSpace: 'nowrap', fontSize: '0.8rem' }}>{fmt(u.created_at)}</td>
+                    <td style={{ padding: '12px 12px' }}>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        <ActionBtn onClick={() => setViewUser(u)} title="View details">👁</ActionBtn>
+                        <ActionBtn 
+                          onClick={() => isAdmin ? showToast('⚠️ Admin users cannot be edited', false) : setEditRoleUser(u)} 
+                          title={isAdmin ? 'Admin protected' : 'Edit role'} 
+                          disabled={isAdmin}
+                          color={isAdmin ? 'var(--text-faint)' : undefined}
+                        >
+                          ✏️
+                        </ActionBtn>
+                        {u.status === 'blocked'
+                          ? <ActionBtn 
+                              onClick={() => isAdmin ? showToast('⚠️ Admin users cannot be unblocked', false) : setConfirmAction({ type: 'unblock', user: u })} 
+                              title={isAdmin ? 'Admin protected' : 'Unblock'} 
+                              color="#34d399"
+                              disabled={isAdmin}
+                            >🔓</ActionBtn>
+                          : <ActionBtn 
+                              onClick={() => isAdmin ? showToast('⚠️ Admin users cannot be blocked', false) : setConfirmAction({ type: 'block', user: u })} 
+                              title={isAdmin ? 'Admin protected' : 'Block'} 
+                              color={isAdmin ? 'var(--text-faint)' : '#f59e0b'}
+                              disabled={isAdmin || u.status === 'deleted'}
+                            >🔒</ActionBtn>
+                        }
+                        <ActionBtn 
+                          onClick={() => isAdmin ? showToast('⚠️ Admin users cannot be deleted', false) : setConfirmAction({ type: 'delete', user: u })} 
+                          title={isAdmin ? 'Admin protected' : 'Delete'} 
+                          color={isAdmin ? 'var(--text-faint)' : '#ef4444'}
+                          disabled={isAdmin || u.status === 'deleted'}
+                        >🗑</ActionBtn>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
       <Pagination page={page} totalPages={totalPages} onPage={setPage} />
+
+      {/* 🔒 Security Notice */}
+      <div style={{
+        marginTop: 16,
+        padding: '12px 16px',
+        background: 'var(--warning)11',
+        border: '1px solid var(--warning)33',
+        borderRadius: 8,
+        color: 'var(--text-muted)',
+        fontSize: '0.8rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+      }}>
+        <span style={{ fontSize: '1.2rem' }}>🔒</span>
+        <span>
+          <strong style={{ color: 'var(--text)' }}>Security Notice:</strong> 
+          Admin accounts are <strong>protected</strong> from deletion, modification, and blocking for system integrity.
+        </span>
+      </div>
 
       {/* Modals */}
       {viewUser && <UserDetailModal user={viewUser} onClose={() => setViewUser(null)} />}
@@ -765,9 +829,11 @@ function ActionBtn({ children, onClick, title, color = 'var(--text-muted)', disa
       disabled={disabled}
       style={{
         padding: '5px 9px', borderRadius: 7,
-        background: 'var(--bg, #0a0f1e)', border: '1px solid var(--border, #1e2a3a)',
+        background: disabled ? 'var(--surface3)' : 'var(--bg)',
+        border: `1px solid ${disabled ? 'var(--border)' : 'var(--border)'}`,
         cursor: disabled ? 'not-allowed' : 'pointer', fontSize: '0.85rem',
-        color, opacity: disabled ? 0.35 : 1, transition: 'all 0.15s',
+        color: disabled ? 'var(--text-faint)' : color,
+        opacity: disabled ? 0.4 : 1, transition: 'all 0.15s',
       }}
     >
       {children}
@@ -781,7 +847,7 @@ function FilterSelect({ value, onChange, options, labels }) {
       value={value}
       onChange={(e) => onChange(e.target.value)}
       style={{
-        background: 'var(--bg, #0a0f1e)', border: '1px solid var(--border, #1e2a3a)',
+        background: 'var(--bg)', border: '1px solid var(--border)',
         borderRadius: 9, padding: '9px 12px', color: 'var(--text)', fontSize: '0.87rem', cursor: 'pointer',
       }}
     >
@@ -811,7 +877,6 @@ function LoginLogsTab() {
         params: { page, page_size: 30, username: usernameFilter || undefined },
       });
       const data = res.data;
-      // Support both paginated and legacy flat-array responses
       if (Array.isArray(data)) {
         setLogs(data);
         setTotal(data.length);
@@ -847,7 +912,7 @@ function LoginLogsTab() {
             placeholder="Filter by username…"
             style={{
               width: '100%', boxSizing: 'border-box',
-              background: 'var(--bg, #0a0f1e)', border: '1px solid var(--border, #1e2a3a)',
+              background: 'var(--bg)', border: '1px solid var(--border)',
               borderRadius: 9, padding: '9px 12px 9px 36px', color: 'var(--text)', fontSize: '0.87rem',
             }}
           />
@@ -943,7 +1008,7 @@ function PendingTab({ onRefreshSummary }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {pending.map((u) => (
         <div key={u.id} style={{
-          background: 'var(--bg, #0a0f1e)', border: '1px solid var(--border, #1e2a3a)',
+          background: 'var(--bg)', border: '1px solid var(--border)',
           borderRadius: 12, padding: '14px 18px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
         }}>
@@ -973,141 +1038,7 @@ function PendingTab({ onRefreshSummary }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Main AdminPanel
-// ─────────────────────────────────────────────────────────────────────────────
-
-const TABS = [
-  { id: 'overview', label: '🏠 Overview' },
-  { id: 'users', label: '👥 Users' },
-  { id: 'pending', label: '⏳ Pending' },
-  { id: 'alerts', label: '🚨 Alerts' },
-  { id: 'logs', label: '📋 Login Logs' },
-];
-
-export default function AdminPanel() {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [summary, setSummary] = useState(null);
-  const [summaryLoading, setSummaryLoading] = useState(true);
-
-  const loadSummary = useCallback(async () => {
-    setSummaryLoading(true);
-    try {
-      const res = await api.get('/admin/dashboard/summary');
-      setSummary(res.data);
-    } catch {
-      setSummary(null);
-    } finally {
-      setSummaryLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { loadSummary(); }, [loadSummary]);
-
-  // Listen for external refresh events
-  useEffect(() => {
-    const handler = () => loadSummary();
-    window.addEventListener('refresh', handler);
-    return () => window.removeEventListener('refresh', handler);
-  }, [loadSummary]);
-
-  return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.03em' }}>
-              🛡️ Admin Control Centre
-            </h1>
-            <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
-              FraudGuard User management, security monitoring &amp; audit trails
-            </p>
-          </div>
-          <button
-            className="btn-secondary"
-            onClick={loadSummary}
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            ↺ Refresh
-          </button>
-        </div>
-      </div>
-
-      {/* Summary cards */}
-      {!summaryLoading && summary && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14, marginBottom: 28 }}>
-          <StatCard icon="👥" label="Total Users" value={summary.total_users} color="#60a5fa" />
-          <StatCard icon="✅" label="Active Users" value={summary.active_users} color="#34d399" />
-          <StatCard icon="⏳" label="Pending Approval" value={summary.pending_approvals} color="#fbbf24"
-            sub={summary.pending_approvals > 0 ? 'Needs review' : 'All clear'} />
-          <StatCard icon="🔒" label="Blocked" value={summary.blocked_users} color="#ef4444" />
-          <StatCard icon="🔥" label="High Risk" value={summary.high_risk_users} color="#f97316"
-            sub="Failed > 5× / hr" />
-          <StatCard icon="❌" label="Failed Logins" value={summary.failed_logins_24h} color="#a78bfa"
-            sub="Last 24 hours" />
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div style={{
-        display: 'flex', gap: 4, flexWrap: 'wrap',
-        background: 'var(--card-bg, #111929)',
-        border: '1px solid var(--border, #1e2a3a)',
-        borderRadius: 12, padding: 6, marginBottom: 20,
-      }}>
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id)}
-            style={{
-              flex: '1 1 auto', minWidth: 90, padding: '9px 16px',
-              borderRadius: 9, border: 'none', cursor: 'pointer',
-              fontWeight: 600, fontSize: '0.83rem',
-              background: activeTab === t.id ? 'var(--purple, #7c3aed)' : 'transparent',
-              color: activeTab === t.id ? '#fff' : 'var(--text-muted, #8892a4)',
-              transition: 'all 0.15s',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {t.label}
-            {t.id === 'pending' && summary?.pending_approvals > 0 && (
-              <span style={{
-                marginLeft: 6, background: '#fbbf24', color: '#000',
-                borderRadius: 10, padding: '1px 7px', fontSize: '0.68rem', fontWeight: 800,
-              }}>
-                {summary.pending_approvals}
-              </span>
-            )}
-            {t.id === 'alerts' && summary?.high_risk_users > 0 && (
-              <span style={{
-                marginLeft: 6, background: '#ef4444', color: '#fff',
-                borderRadius: 10, padding: '1px 7px', fontSize: '0.68rem', fontWeight: 800,
-              }}>
-                {summary.high_risk_users}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      <div style={{
-        background: 'var(--card-bg, #111929)',
-        border: '1px solid var(--border, #1e2a3a)',
-        borderRadius: 14, padding: '1.5rem',
-      }}>
-        {activeTab === 'overview' && <OverviewTab summary={summary} onNavigate={setActiveTab} />}
-        {activeTab === 'users' && <UsersTable onRefreshSummary={loadSummary} />}
-        {activeTab === 'pending' && <PendingTab onRefreshSummary={loadSummary} />}
-        {activeTab === 'alerts' && <AlertsPanel onAck={loadSummary} />}
-        {activeTab === 'logs' && <LoginLogsTab />}
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Overview Tab — quick-action cards
+// Overview Tab
 // ─────────────────────────────────────────────────────────────────────────────
 
 function OverviewTab({ summary, onNavigate }) {
@@ -1158,8 +1089,8 @@ function OverviewTab({ summary, onNavigate }) {
           <div
             key={card.tab}
             style={{
-              background: 'var(--bg, #0a0f1e)',
-              border: `1px solid ${card.highlight ? card.color + '66' : 'var(--border, #1e2a3a)'}`,
+              background: 'var(--bg)',
+              border: `1px solid ${card.highlight ? card.color + '66' : 'var(--border)'}`,
               borderRadius: 12, padding: '18px 20px',
               display: 'flex', flexDirection: 'column', gap: 10,
               position: 'relative', overflow: 'hidden',
@@ -1186,6 +1117,136 @@ function OverviewTab({ summary, onNavigate }) {
             </button>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN AdminPanel
+// ─────────────────────────────────────────────────────────────────────────────
+
+const TABS = [
+  { id: 'overview', label: '🏠 Overview' },
+  { id: 'users', label: '👥 Users' },
+  { id: 'pending', label: '⏳ Pending' },
+  { id: 'alerts', label: '🚨 Alerts' },
+  { id: 'logs', label: '📋 Login Logs' },
+];
+
+export default function AdminPanel() {
+  const { isDarkMode } = useTheme();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [summary, setSummary] = useState(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+
+  const loadSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    try {
+      const res = await api.get('/admin/dashboard/summary');
+      setSummary(res.data);
+    } catch {
+      setSummary(null);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadSummary(); }, [loadSummary]);
+
+  useEffect(() => {
+    const handler = () => loadSummary();
+    window.addEventListener('refresh', handler);
+    return () => window.removeEventListener('refresh', handler);
+  }, [loadSummary]);
+
+  return (
+    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: 'var(--text)', letterSpacing: '-0.03em' }}>
+              🛡️ Admin Control Centre
+            </h1>
+            <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+              FraudGuard User management, security monitoring &amp; audit trails
+            </p>
+          </div>
+          <button
+            className="btn-secondary"
+            onClick={loadSummary}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            ↺ Refresh
+          </button>
+        </div>
+      </div>
+
+      {!summaryLoading && summary && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14, marginBottom: 28 }}>
+          <StatCard icon="👥" label="Total Users" value={summary.total_users} color="#60a5fa" />
+          <StatCard icon="✅" label="Active Users" value={summary.active_users} color="#34d399" />
+          <StatCard icon="⏳" label="Pending Approval" value={summary.pending_approvals} color="#fbbf24"
+            sub={summary.pending_approvals > 0 ? 'Needs review' : 'All clear'} />
+          <StatCard icon="🔒" label="Blocked" value={summary.blocked_users} color="#ef4444" />
+          <StatCard icon="🔥" label="High Risk" value={summary.high_risk_users} color="#f97316"
+            sub="Failed > 5× / hr" />
+          <StatCard icon="❌" label="Failed Logins" value={summary.failed_logins_24h} color="#a78bfa"
+            sub="Last 24 hours" />
+        </div>
+      )}
+
+      <div style={{
+        display: 'flex', gap: 4, flexWrap: 'wrap',
+        background: 'var(--card-bg)',
+        border: '1px solid var(--border)',
+        borderRadius: 12, padding: 6, marginBottom: 20,
+      }}>
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            style={{
+              flex: '1 1 auto', minWidth: 90, padding: '9px 16px',
+              borderRadius: 9, border: 'none', cursor: 'pointer',
+              fontWeight: 600, fontSize: '0.83rem',
+              background: activeTab === t.id ? 'var(--purple, #7c3aed)' : 'transparent',
+              color: activeTab === t.id ? '#fff' : 'var(--text-muted)',
+              transition: 'all 0.15s',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {t.label}
+            {t.id === 'pending' && summary?.pending_approvals > 0 && (
+              <span style={{
+                marginLeft: 6, background: '#fbbf24', color: '#000',
+                borderRadius: 10, padding: '1px 7px', fontSize: '0.68rem', fontWeight: 800,
+              }}>
+                {summary.pending_approvals}
+              </span>
+            )}
+            {t.id === 'alerts' && summary?.high_risk_users > 0 && (
+              <span style={{
+                marginLeft: 6, background: '#ef4444', color: '#fff',
+                borderRadius: 10, padding: '1px 7px', fontSize: '0.68rem', fontWeight: 800,
+              }}>
+                {summary.high_risk_users}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div style={{
+        background: 'var(--card-bg)',
+        border: '1px solid var(--border)',
+        borderRadius: 14, padding: '1.5rem',
+      }}>
+        {activeTab === 'overview' && <OverviewTab summary={summary} onNavigate={setActiveTab} />}
+        {activeTab === 'users' && <UsersTable onRefreshSummary={loadSummary} />}
+        {activeTab === 'pending' && <PendingTab onRefreshSummary={loadSummary} />}
+        {activeTab === 'alerts' && <AlertsPanel onAck={loadSummary} />}
+        {activeTab === 'logs' && <LoginLogsTab />}
       </div>
     </div>
   );
