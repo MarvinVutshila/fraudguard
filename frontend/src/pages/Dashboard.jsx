@@ -14,6 +14,7 @@ import {
 } from 'chart.js';
 import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import api from '../services/api';
+import { useTheme } from '../context/ThemeContext';
 
 ChartJS.register(
   BarElement,
@@ -29,6 +30,7 @@ ChartJS.register(
 );
 
 export default function Dashboard() {
+  const { isDarkMode } = useTheme();
   const [transactions, setTransactions] = useState([]);
   const [totalTransactions, setTotalTransactions] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -103,6 +105,16 @@ export default function Dashboard() {
     )
     .slice(0, 50);
 
+  // Chart colors that adapt to theme
+  const getChartColors = () => {
+    return {
+      gridColor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+      textColor: isDarkMode ? '#7a8ba5' : '#6c757d',
+    };
+  };
+
+  const chartColors = getChartColors();
+
   const riskChartData = {
     labels: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
     datasets: [{
@@ -128,11 +140,80 @@ export default function Dashboard() {
       label: 'Fraud Probability',
       data: last30.map(tx => tx.probability || 0),
       borderColor: '#ef4444',
-      backgroundColor: 'rgba(239,68,68,0.05)',
+      backgroundColor: isDarkMode ? 'rgba(239,68,68,0.1)' : 'rgba(239,68,68,0.05)',
       fill: true,
       tension: 0.3,
       pointRadius: 1,
+      pointBackgroundColor: isDarkMode ? '#ef4444' : '#ef4444',
+      borderWidth: 2,
     }]
+  };
+
+  // Chart options with theme support
+  const barOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false }
+    },
+    scales: {
+      x: {
+        grid: {
+          color: chartColors.gridColor,
+          drawBorder: false,
+        },
+        ticks: {
+          color: chartColors.textColor,
+        }
+      },
+      y: {
+        grid: {
+          color: chartColors.gridColor,
+          drawBorder: false,
+        },
+        ticks: {
+          color: chartColors.textColor,
+        }
+      }
+    }
+  };
+
+  const doughnutOptions = {
+    cutout: '65%',
+    plugins: {
+      legend: { display: false }
+    }
+  };
+
+  const lineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: {
+        grid: {
+          color: chartColors.gridColor,
+          drawBorder: false,
+        },
+        ticks: {
+          color: chartColors.textColor,
+          maxTicksLimit: 10,
+        }
+      },
+      y: {
+        min: 0,
+        max: 1,
+        grid: {
+          color: chartColors.gridColor,
+          drawBorder: false,
+        },
+        ticks: {
+          color: chartColors.textColor,
+        }
+      }
+    },
+    plugins: {
+      legend: { display: false }
+    }
   };
 
   return (
@@ -178,7 +259,7 @@ export default function Dashboard() {
             <span className="chart-title">Risk Distribution</span>
           </div>
           <div className="chart-container">
-            <Bar data={riskChartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }} />
+            <Bar data={riskChartData} options={barOptions} />
           </div>
         </div>
         <div className="chart-card">
@@ -186,7 +267,7 @@ export default function Dashboard() {
             <span className="chart-title">Decision Split</span>
           </div>
           <div className="chart-container doughnut">
-            <Doughnut data={decChartData} options={{ cutout: '65%', plugins: { legend: { display: false } } }} />
+            <Doughnut data={decChartData} options={doughnutOptions} />
           </div>
           <div className="doughnut-legend">
             <div><span className="dot" style={{background:'#10b981'}}></span> Approve: {decCounts.APPROVE}</div>
@@ -200,7 +281,7 @@ export default function Dashboard() {
             <span className="chart-sub">Last 30 transactions</span>
           </div>
           <div className="chart-container">
-            <Line data={trendData} options={{ responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 1 } }, plugins: { legend: { display: false } } }} />
+            <Line data={trendData} options={lineOptions} />
           </div>
         </div>
       </div>
@@ -217,10 +298,12 @@ export default function Dashboard() {
               placeholder="Search by ID…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              className="theme-input"
             />
             <select
               value={decisionFilter}
               onChange={(e) => setDecisionFilter(e.target.value)}
+              className="theme-select"
             >
               <option value="">All Decisions</option>
               <option value="APPROVE">Approve</option>
