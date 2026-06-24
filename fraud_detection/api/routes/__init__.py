@@ -1,11 +1,10 @@
 from fastapi import APIRouter, File, UploadFile, Depends, HTTPException
-from fraud_detection.api.auth import router as auth_router
-from .health import router as health_router
-from .model import router as model_router
-from .predictions import router as predictions_router
-from .transactions import router as transactions_router
-# from .history import router as history_router   # ❌ REMOVED – history.py is deleted
-from .admin import router as admin_router
+from fraud_detection.api.routes.auth import router as auth_router
+from fraud_detection.api.routes.health import router as health_router
+from fraud_detection.api.routes.model import router as model_router
+from fraud_detection.api.routes.predictions import router as predictions_router
+from fraud_detection.api.routes.transactions import router as transactions_router
+from fraud_detection.api.routes.admin import router as admin_router
 from fraud_detection.api.dependencies import get_current_user
 from fraud_detection.database.postgres_db import get_connection
 import base64
@@ -18,7 +17,6 @@ router.include_router(health_router)        # /health
 router.include_router(model_router)          # /model/...
 router.include_router(predictions_router)    # /predict/...
 router.include_router(transactions_router)   # /transactions/...
-# router.include_router(history_router)        # ❌ REMOVED – no longer needed
 router.include_router(admin_router)          # /admin/...
 
 @router.post("/users/avatar")
