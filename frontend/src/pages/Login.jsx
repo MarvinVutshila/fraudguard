@@ -33,6 +33,7 @@ export default function Login() {
     
     console.log('🔐 Attempting login...');
     console.log('📧 Email:', email);
+    console.log('🔗 API URL:', api.defaults.baseURL);
     
     try {
       const res = await api.post('/auth/login', { 
@@ -40,7 +41,8 @@ export default function Login() {
         password: password 
       });
       
-      console.log('✅ Login response:', res.data);
+      console.log('✅ Login response received!');
+      console.log('📦 Response data:', res.data);
       
       const { access_token, refresh_token, role, totp_enabled, requires_2fa } = res.data;
       
@@ -61,11 +63,13 @@ export default function Login() {
       }
       localStorage.setItem('fg_role', role || 'analyst');
       
+      console.log('✅ Login successful! Redirecting to dashboard...');
       navigate('/');
     } catch (err) {
       console.error('❌ Login error:', err);
-      console.error('📡 Response:', err.response);
-      console.error('📡 Response data:', err.response?.data);
+      console.error('📡 Error response:', err.response);
+      console.error('📡 Error data:', err.response?.data);
+      console.error('📡 Error status:', err.response?.status);
       
       if (err.code === 'ERR_NETWORK') {
         setError('Cannot connect to server. Please check your network connection.');
