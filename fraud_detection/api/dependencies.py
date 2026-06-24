@@ -3,6 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 import os
 from typing import Optional, Dict, Any
+from datetime import datetime  # ✅ ADDED: For checking block time
 
 # Import from the correct location
 from fraud_detection.api.routes.auth import verify_token
@@ -34,13 +35,34 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         if not username:
             raise HTTPException(status_code=401, detail="Invalid token: no username")
         
+        # ✅ Get token issued at time
+        token_iat = payload.get("iat")
+        if token_iat:
+            token_issued_at = datetime.fromtimestamp(token_iat)
+        else:
+            token_issued_at = None
+        
         db = Database()
         user = db.get_user_by_username(username)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        # 🔒 Check if user is blocked - IMMEDIATELY REJECT
+        # 🔒 IMMEDIATE BLOCK CHECK - Check if user is blocked
         if user.get('status') == 'blocked':
+            blocked_at = user.get('blocked_at')
+            
+            # ✅ If token was issued BEFORE the user was blocked, reject immediately
+            if blocked_at and token_issued_at:
+                # Convert blocked_at to datetime if it's a string
+                if isinstance(blocked_at, str):
+                    blocked_at = datetime.fromisoformat(blocked_at.replace('Z', '+00:00'))
+                
+                if token_issued_at < blocked_at:
+                    raise HTTPException(
+                        status_code=403, 
+                        detail="Your account was blocked. Please log in again."
+                    )
+            
             raise HTTPException(
                 status_code=403, 
                 detail="Your account has been blocked. Please contact support."
