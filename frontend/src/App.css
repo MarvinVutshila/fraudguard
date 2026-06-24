@@ -1,5 +1,6 @@
-/* ===== LIGHT MODE VARIABLES ===== */
-:root {
+/* ===== LIGHT MODE VARIABLES (DEFAULT) ===== */
+:root,
+[data-theme="light"] {
   --bg: #f0f2f5;
   --surface: #ffffff;
   --surface2: #f8f9fa;
@@ -41,9 +42,16 @@
   --text-faint: #3f4e6b;
   --card-bg: #131a2b;
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --accent: #3b82f6;
+  --accent-dim: rgba(59, 130, 246, 0.15);
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --success: #10b981;
+  --purple: #8b5cf6;
+  --cyan: #06b6d4;
 }
 
-/* Also support .dark class for tailwind compatibility */
+/* ===== SUPPORT .dark CLASS FOR TAILWIND ===== */
 .dark {
   --bg: #0b0f1c;
   --surface: #131a2b;
@@ -56,43 +64,23 @@
   --text-faint: #3f4e6b;
   --card-bg: #131a2b;
   --shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-}
-
-/* ===== GLOBAL VARIABLES ===== */
-:root {
-  --bg: #0b0f1c;
-  --surface: #131a2b;
-  --surface2: #1c263b;
-  --surface3: #2a3655;
-  --border: rgba(59, 130, 246, 0.12);
-  --border-md: rgba(59, 130, 246, 0.2);
   --accent: #3b82f6;
   --accent-dim: rgba(59, 130, 246, 0.15);
   --danger: #ef4444;
   --warning: #f59e0b;
   --success: #10b981;
   --purple: #8b5cf6;
-  --text: #e8edf5;
-  --text-muted: #7a8ba5;
-  --text-faint: #3f4e6b;
-  --radius: 10px;
-  --radius-lg: 16px;
-  --shadow: 0 8px 32px rgba(0,0,0,0.6);
-  --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
-  --sidebar-width: 250px;
-  --sidebar-collapsed: 68px;
-  --header-height: 64px;
-  --display: 'Space Grotesk', sans-serif;
-  --mono: 'JetBrains Mono', monospace;
   --cyan: #06b6d4;
 }
 
+/* ===== GLOBAL RESET ===== */
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
   font-family: 'Inter', system-ui, sans-serif;
   background: var(--bg);
   color: var(--text);
   line-height: 1.5;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 a { text-decoration: none; color: inherit; }
 
@@ -571,11 +559,11 @@ tr.critical td { background:rgba(239,68,68,0.03); }
 /* ---- LEFT PANEL ---- */
 .login-left {
   flex: 1.2;
-  padding: 5rem 4rem 3rem 4rem;  /* ✅ FIX: Increased top padding from 3.5rem to 5rem */
+  padding: 5rem 4rem 3rem 4rem;
   background: linear-gradient(145deg, rgba(11,15,28,0.85), rgba(11,15,28,0.7)), url('/Marvin.jpg') center/cover no-repeat;
   display: flex;
   flex-direction: column;
-  justify-content: center;  /* ✅ FIX: Centers content vertically */
+  justify-content: center;
   color: #fff;
 }
 .brand-block {
@@ -599,7 +587,7 @@ tr.critical td { background:rgba(239,68,68,0.03); }
   margin-top: 0.15rem;
 }
 .hero-text {
-  margin: 60px 0 30px 0;  /* ✅ FIX: Changed from 2.5rem (40px) to 60px top, 30px bottom */
+  margin: 60px 0 30px 0;
 }
 .hero-text h2 {
   font-family: var(--display);
@@ -1071,7 +1059,6 @@ tr.critical td { background:rgba(239,68,68,0.03); }
     grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
   }
 }
-
 
 /* ===== THEME TOGGLE ===== */
 .theme-toggle {
