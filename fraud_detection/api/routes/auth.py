@@ -359,3 +359,16 @@ async def disable_2fa(request: TwoFactorDisableRequest, payload: dict = Depends(
     db.disable_2fa(username)
     db.log_user_activity(username, "2fa_disabled", {"message": "2FA disabled"})
     return {"message": "2FA disabled successfully"}
+
+# ---------- Export everything needed ----------
+__all__ = [
+    'router',
+    'create_access_token',
+    'create_refresh_token',
+    'verify_token',
+    'verify_refresh_token',
+    'hash_password',
+    'verify_password',
+    'check_rate_limit',
+    'record_login_attempt'
+]
