@@ -132,6 +132,22 @@ async def login(creds: LoginRequest, request: Request):
                 role = row[2]
                 status = row[3]
                 totp_enabled = row[4] if len(row) > 4 else False
+                
+                # 🔒 Check status before verifying password
+                if status == "blocked":
+                    db = Database()
+                    db.log_login_attempt(creds.username, False, client_ip, user_agent)
+                    raise HTTPException(403, detail="Your account has been blocked. Please contact support.")
+                elif status == "deleted":
+                    db = Database()
+                    db.log_login_attempt(creds.username, False, client_ip, user_agent)
+                    raise HTTPException(403, detail="Your account has been deleted.")
+                elif status in ["pending", "rejected"]:
+                    db = Database()
+                    db.log_login_attempt(creds.username, False, client_ip, user_agent)
+                    raise HTTPException(403, detail=f"Your account is {status}. Please contact support.")
+                
+                # Only verify password if status is active
                 if status == "active" and verify_password(creds.password, hashed):
                     success = True
 
