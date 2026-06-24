@@ -13,9 +13,9 @@ from fraud_detection.application.services.prediction_service import PredictionSe
 from fraud_detection.application.services.decision_service import DecisionService
 from fraud_detection.infrastructure.repositories.postgres_transaction_repository import StorageService
 from fraud_detection.database.postgres_db import Database, init_db_pool, create_tables
-from fraud_detection.api.routes import router
+from fraud_detection.api import router
 from fraud_detection.api.dependencies import set_services
-from fraud_detection.api.auth import create_access_token
+from fraud_detection.api.routes.auth import create_access_token
 from fastapi.middleware.cors import CORSMiddleware
 
 logging.basicConfig(level=LOG_LEVEL)
@@ -39,10 +39,12 @@ async def lifespan(app: FastAPI):
         db = Database()
         
         # Ensure refresh tokens table exists
-        db.create_refresh_tokens_table()
+        if hasattr(db, 'create_refresh_tokens_table'):
+            db.create_refresh_tokens_table()
         
         # Ensure TOTP columns exist
-        db.add_totp_columns()
+        if hasattr(db, 'add_totp_columns'):
+            db.add_totp_columns()
 
         logger.info("Loading model artefacts…")
         artefacts = load_artefacts(MODELS_DIR)
@@ -116,7 +118,7 @@ async def track_last_active(request: Request, call_next):
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         try:
-            from fraud_detection.api.auth import verify_token
+            from fraud_detection.api.routes.auth import verify_token
             payload = verify_token(token)
             username = payload.get("sub")
             if username:
