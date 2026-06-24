@@ -4,9 +4,14 @@ import { useTheme } from '../context/ThemeContext';
 const ThemeToggle = () => {
   const { isDarkMode, toggleTheme } = useTheme();
 
+  console.log('ThemeToggle render - isDarkMode:', isDarkMode);
+
   return (
     <button
-      onClick={toggleTheme}
+      onClick={() => {
+        console.log('Toggle button clicked');
+        toggleTheme();
+      }}
       className="theme-toggle"
       aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
       title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
