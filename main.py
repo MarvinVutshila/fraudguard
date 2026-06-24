@@ -1,10 +1,12 @@
+# main.py (final, with SPA fallback and activity tracking middleware)
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from contextlib import asynccontextmanager
 import logging
 import os
-from datetime import datetime  # ✅ ADD THIS
+from datetime import datetime  # ✅ ADDED: For checking block time
 from pydantic import BaseModel
 from fraud_detection.core.config import MODELS_DIR, DB_DSN, LOG_LEVEL, APPROVE_THRESHOLD, BLOCK_THRESHOLD
 from fraud_detection.ml.inference.model_loader import load_artefacts
@@ -37,9 +39,11 @@ async def lifespan(app: FastAPI):
         create_tables()
         db = Database()
         
+        # Ensure refresh tokens table exists
         if hasattr(db, 'create_refresh_tokens_table'):
             db.create_refresh_tokens_table()
         
+        # Ensure TOTP columns exist
         if hasattr(db, 'add_totp_columns'):
             db.add_totp_columns()
 
@@ -76,7 +80,7 @@ app = FastAPI(
 # ---- CORS Middleware ----
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Update with your frontend URL in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -96,13 +100,13 @@ if not os.path.exists(frontend_path):
     frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
 logger.info(f"Frontend path set to: {frontend_path}")
 
-# 3. Mount static assets
+# 3. Mount static assets (JS, CSS, images) under /assets
 assets_path = os.path.join(frontend_path, "assets")
 if os.path.exists(assets_path):
     app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
     logger.info(f"Assets mounted from: {assets_path}")
 
-# 4. Middleware to track last_active AND check if user is blocked
+# 4. Middleware to track last_active AND check if user is blocked (IMMEDIATE BLOCK)
 @app.middleware("http")
 async def track_last_active_and_check_blocked(request: Request, call_next):
     """
@@ -184,6 +188,7 @@ async def track_last_active_and_check_blocked(request: Request, call_next):
 # 5. Catch‑all route: serve static files or index.html
 @app.get("/{full_path:path}")
 async def serve_spa(request: Request, full_path: str):
+    # Skip API paths that might have been missed
     if full_path.startswith("admin/") or full_path.startswith("auth/") or full_path.startswith("api/"):
         raise HTTPException(status_code=404, detail="API endpoint not found")
     
