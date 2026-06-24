@@ -1,361 +1,482 @@
-import os
-import json
-import logging
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
-from jose import JWTError, jwt
-from fastapi import APIRouter, HTTPException, status, Depends, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from passlib.context import CryptContext
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 from fraud_detection.database.postgres_db import get_connection, Database
-from .auth_models import (
-    LoginRequest, UserRegister,
-    TwoFactorSetupRequest, TwoFactorVerifyRequest, TwoFactorDisableRequest
-)
-import pyotp
-import qrcode
-import base64
-from io import BytesIO
+from fraud_detection.api.dependencies import get_current_admin, get_services
+from psycopg2.extras import RealDictCursor
+from typing import Optional
+import logging
 
 logger = logging.getLogger(__name__)
 
-# ---------- Configuration ----------
-SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-REFRESH_SECRET_KEY = os.getenv("JWT_REFRESH_SECRET_KEY", SECRET_KEY)
-if not SECRET_KEY:
-    raise ValueError("JWT_SECRET_KEY environment variable not set")
+# ---------- Pydantic models ----------
+class UserApprove(BaseModel):
+    user_id: int
+    approve: bool
 
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
-MAX_LOGIN_ATTEMPTS = 5
-LOCKOUT_MINUTES = 15
+class RoleUpdate(BaseModel):
+    role: str
 
-security = HTTPBearer()
-pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
+class BlockRequest(BaseModel):
+    reason: Optional[str] = None
 
-# In-memory rate limiting
-login_attempts: Dict[str, list] = {}
+# ---------- Router with /admin prefix ----------
+router = APIRouter(prefix="/admin", tags=["admin"])
 
-# ---------- Helper Functions ----------
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+# ---------- Test route ----------
+@router.get("/test")
+async def test_route():
+    logger.info("✅ Admin test route called")
+    return {"message": "Admin router works!"}
 
-def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+# ---------- User approval endpoints (ADMIN ONLY) ----------
+@router.get("/users/pending")
+async def get_pending_users(current_user=Depends(get_current_admin)):
+    logger.info("📊 get_pending_users called")
+    db = Database()
+    pending = db.get_pending_users()
+    logger.info(f"   Found {len(pending)} pending users")
+    return {"pending": pending}
 
-def create_access_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire, "type": "access"})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-def create_refresh_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire, "type": "refresh"})
-    return jwt.encode(to_encode, REFRESH_SECRET_KEY, algorithm=ALGORITHM)
-
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
-    token = credentials.credentials
+@router.post("/users/approve")
+async def approve_user(approval: UserApprove, current_user=Depends(get_current_admin)):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("type") != "access":
-            raise HTTPException(status_code=401, detail="Invalid token type")
-        return payload
-    except JWTError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
-
-def verify_refresh_token(token: str) -> dict:
-    try:
-        payload = jwt.decode(token, REFRESH_SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("type") != "refresh":
-            raise HTTPException(status_code=401, detail="Invalid token type")
-        return payload
-    except JWTError as e:
-        raise HTTPException(status_code=401, detail=f"Invalid refresh token: {str(e)}")
-
-def check_rate_limit(username: str, ip: str) -> tuple[bool, Optional[int]]:
-    key = f"{username}:{ip}"
-    now = datetime.utcnow().timestamp()
-    window_start = now - (LOCKOUT_MINUTES * 60)
-    
-    if key in login_attempts:
-        login_attempts[key] = [t for t in login_attempts[key] if t > window_start]
-        
-        if len(login_attempts[key]) >= MAX_LOGIN_ATTEMPTS:
-            oldest_attempt = min(login_attempts[key])
-            remaining = int(LOCKOUT_MINUTES * 60 - (now - oldest_attempt))
-            return False, max(0, remaining)
-    
-    return True, None
-
-def record_login_attempt(username: str, ip: str, success: bool) -> None:
-    if not success:
-        key = f"{username}:{ip}"
-        if key not in login_attempts:
-            login_attempts[key] = []
-        login_attempts[key].append(datetime.utcnow().timestamp())
-
-# ---------- Router ----------
-router = APIRouter(prefix="/auth", tags=["auth"])
-
-@router.post("/login")
-async def login(creds: LoginRequest, request: Request):
-    """Authenticate a user with rate limiting and 2FA support."""
-    user_agent = request.headers.get("user-agent", "unknown")
-    client_ip = request.client.host if request.client else "0.0.0.0"
-    
-    allowed, remaining = check_rate_limit(creds.username, client_ip)
-    if not allowed:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Too many login attempts. Please wait {remaining} seconds."
-        )
-    
-    success = False
-    user = None
-    role = "analyst"
-    status = None
-    totp_enabled = False
-
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT username, password, role, status, totp_enabled FROM users WHERE username = %s",
-                (creds.username,)
-            )
-            row = cur.fetchone()
-            if row:
-                user = row[0]
-                hashed = row[1]
-                role = row[2]
-                status = row[3]
-                totp_enabled = row[4] if len(row) > 4 else False
-                if status == "active" and verify_password(creds.password, hashed):
-                    success = True
-
-    record_login_attempt(creds.username, client_ip, success)
-
-    if not success:
+        logger.info(f"📊 approve_user called for user_id: {approval.user_id}")
         db = Database()
-        db.log_login_attempt(creds.username, False, client_ip, user_agent)
+        user = db.get_user_by_id(approval.user_id)
+        if not user:
+            raise HTTPException(404, "User not found")
         
-        if status == "pending":
-            raise HTTPException(403, detail="Account pending admin approval.")
-        elif status == "rejected":
-            raise HTTPException(403, detail="Account rejected by admin.")
-        elif status == "blocked":
-            raise HTTPException(403, detail="Account blocked.")
-        else:
-            raise HTTPException(401, detail="Invalid credentials")
+        # Check if user is already processed
+        if user['status'] in ['active', 'rejected']:
+            raise HTTPException(400, f"User already {user['status']}")
+        
+        new_status = "active" if approval.approve else "rejected"
+        db.update_user_status(approval.user_id, new_status)
+        
+        # Log activity
+        db.log_user_activity(
+            current_user.get('sub', 'admin'), 
+            "approve_user", 
+            {"target": user['username'], "status": new_status}
+        )
+        
+        logger.info(f"✅ User {user['username']} set to {new_status}")
+        return {"message": f"User {user['username']} set to {new_status}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error approving user: {e}", exc_info=True)
+        raise HTTPException(500, f"Failed to approve user: {str(e)}")
 
-    access_token = create_access_token({"sub": user, "role": role})
-    refresh_token = create_refresh_token({"sub": user, "role": role})
+# ---------- User role update (ADMIN ONLY) ----------
+@router.patch("/users/{user_id}/role")
+async def update_user_role(user_id: int, update: RoleUpdate, current_user=Depends(get_current_admin)):
+    valid_roles = ["admin", "analyst", "viewer"]
+    if update.role not in valid_roles:
+        raise HTTPException(400, f"Invalid role. Must be one of: {', '.join(valid_roles)}")
     
+    logger.info(f"📊 update_user_role called for user_id: {user_id}, new role: {update.role}")
     db = Database()
-    db.log_login_attempt(creds.username, True, client_ip, user_agent)
-    db.log_user_activity(user, "login", {"ip": client_ip, "user_agent": user_agent})
-    db.update_last_active(creds.username)
-    db.store_refresh_token(user, refresh_token, 
-                          datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS))
+    user = db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
     
-    response_data = {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "role": role
-    }
-    
-    if totp_enabled:
-        response_data["requires_2fa"] = True
-    
-    return response_data
-
-@router.post("/refresh")
-async def refresh_token(request: Request):
-    """Get a new access token using a refresh token."""
-    try:
-        data = await request.json()
-        refresh_token = data.get('refresh_token')
-    except:
-        raise HTTPException(400, "Invalid request body")
-    
-    if not refresh_token:
-        raise HTTPException(400, "Refresh token required")
-    
-    try:
-        payload = jwt.decode(refresh_token, REFRESH_SECRET_KEY, algorithms=[ALGORITHM])
-        if payload.get("type") != "refresh":
-            raise HTTPException(401, "Invalid token type")
-    except JWTError as e:
-        raise HTTPException(401, f"Invalid refresh token: {str(e)}")
-    
-    username = payload.get("sub")
-    role = payload.get("role", "analyst")
-    
-    db = Database()
-    stored_token = db.get_refresh_token(username, refresh_token)
-    if not stored_token:
-        raise HTTPException(401, "Invalid or revoked refresh token")
-    
-    new_access_token = create_access_token({"sub": username, "role": role})
-    
-    return {
-        "access_token": new_access_token,
-        "token_type": "bearer"
-    }
-
-@router.post("/register")
-async def register(user: UserRegister, request: Request):
-    """Register a new user."""
-    client_ip = request.client.host if request.client else "0.0.0.0"
-
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM users WHERE username = %s", (user.username,))
-            if cur.fetchone():
-                raise HTTPException(409, "Username already exists")
-
-            hashed = hash_password(user.password)
-            cur.execute(
-                """
-                INSERT INTO users (username, password, role, status, avatar_url)
-                VALUES (%s, %s, %s, %s, %s) RETURNING id
-                """,
-                (user.username, hashed, "analyst", "pending", user.avatar_url)
-            )
-            new_id = cur.fetchone()[0]
+            cur.execute("UPDATE users SET role = %s WHERE id = %s RETURNING id", (update.role, user_id))
+            if not cur.fetchone():
+                raise HTTPException(404, "User not found")
         conn.commit()
-
-    logger.info(f"New user registered: {user.username} from IP {client_ip}")
-    return {
-        "message": "Account created successfully. Awaiting admin approval.",
-        "user_id": new_id
-    }
-
-@router.post("/logout")
-async def logout(request: Request, payload: dict = Depends(verify_token)):
-    """Log out and revoke refresh token."""
-    username = payload.get("sub")
     
-    refresh_token = None
-    try:
-        data = await request.json()
-        refresh_token = data.get('refresh_token')
-    except:
-        pass
+    # Log activity
+    db.log_user_activity(
+        current_user.get('sub', 'admin'),
+        "change_role",
+        {"target": user['username'], "new_role": update.role}
+    )
     
+    logger.info(f"✅ User {user['username']} role updated to {update.role}")
+    return {"message": f"User {user_id} role updated to {update.role}"}
+
+# ---------- Block user (ADMIN ONLY) ----------
+@router.post("/users/{user_id}/block")
+async def block_user(user_id: int, block_data: BlockRequest, current_user=Depends(get_current_admin)):
+    logger.info(f"📊 block_user called for user_id: {user_id}")
     db = Database()
-    if refresh_token:
-        db.revoke_refresh_token(username, refresh_token)
+    user = db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    if user['status'] == 'deleted':
+        raise HTTPException(400, "Cannot block a deleted user")
     
-    db.log_user_activity(username, "logout", {"message": "User logged out"})
-    return {"message": "Logged out successfully"}
+    db.block_user(user_id, block_data.reason)
+    db.log_user_activity(
+        current_user.get('sub', 'admin'), 
+        "block_user", 
+        {"target": user['username'], "reason": block_data.reason}
+    )
+    logger.info(f"✅ User {user['username']} blocked")
+    return {"message": f"User {user_id} has been blocked"}
 
-@router.get("/me")
-async def get_current_user_info(payload: dict = Depends(verify_token)):
-    """Get current user information."""
-    username = payload.get("sub")
+# ---------- Unblock user (ADMIN ONLY) ----------
+@router.post("/users/{user_id}/unblock")
+async def unblock_user(user_id: int, current_user=Depends(get_current_admin)):
+    logger.info(f"📊 unblock_user called for user_id: {user_id}")
+    db = Database()
+    user = db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    if user['status'] != 'blocked':
+        raise HTTPException(400, "User is not currently blocked")
+    
+    db.unblock_user(user_id)
+    db.log_user_activity(
+        current_user.get('sub', 'admin'), 
+        "unblock_user", 
+        {"target": user['username']}
+    )
+    logger.info(f"✅ User {user['username']} unblocked")
+    return {"message": f"User {user_id} has been unblocked"}
+
+# ---------- Delete user (ADMIN ONLY) - COMPLETE CASCADE DELETE ----------
+@router.delete("/users/{user_id}")
+async def delete_user(user_id: int, current_user=Depends(get_current_admin)):
+    """
+    Permanently delete a user and all their associated data.
+    - Deletes from users table
+    - Deletes from login_logs table
+    - Deletes from user_activity table
+    - Deletes from refresh_tokens table
+    - Cannot delete the last admin user
+    """
+    logger.info(f"📊 delete_user called for user_id: {user_id}")
+    db = Database()
+    user = db.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(404, "User not found")
+    
+    # Check if user is already deleted
+    if user['status'] == 'deleted':
+        raise HTTPException(400, "User is already deleted")
+    
+    # Prevent deleting the last admin
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                "SELECT username, role, avatar_url, status, totp_enabled FROM users WHERE username = %s",
-                (username,)
-            )
-            row = cur.fetchone()
-    if not row:
-        raise HTTPException(404, "User not found")
+            cur.execute("SELECT COUNT(*) FROM users WHERE role = 'admin' AND status != 'deleted'")
+            admin_count = cur.fetchone()[0]
+            if admin_count <= 1 and user['role'] == 'admin':
+                raise HTTPException(400, "Cannot delete the last admin user. Please create another admin first.")
+    
+    # Get username for logging and deletion
+    username = user['username']
+    admin_username = current_user.get('sub', 'admin')
+    
+    # Perform hard delete (remove all user data from all tables)
+    deleted_counts = {}
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            # Delete user activity logs
+            cur.execute("DELETE FROM user_activity WHERE username = %s", (username,))
+            deleted_counts['user_activity'] = cur.rowcount
+            logger.info(f"Deleted {cur.rowcount} user_activity records for {username}")
+            
+            # Delete login logs
+            cur.execute("DELETE FROM login_logs WHERE username = %s", (username,))
+            deleted_counts['login_logs'] = cur.rowcount
+            logger.info(f"Deleted {cur.rowcount} login_logs records for {username}")
+            
+            # Delete refresh tokens
+            cur.execute("DELETE FROM refresh_tokens WHERE username = %s", (username,))
+            deleted_counts['refresh_tokens'] = cur.rowcount
+            logger.info(f"Deleted {cur.rowcount} refresh_tokens records for {username}")
+            
+            # Delete the user
+            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+            deleted_counts['users'] = cur.rowcount
+            logger.info(f"Deleted user {username} (ID: {user_id})")
+        conn.commit()
+    
+    # Log the activity (by admin who deleted)
+    db.log_user_activity(
+        admin_username, 
+        "delete_user", 
+        {
+            "deleted_user": username, 
+            "user_id": user_id,
+            "deleted_records": deleted_counts
+        }
+    )
+    
     return {
-        "username": row[0],
-        "role": row[1],
-        "avatar_url": row[2],
-        "status": row[3],
-        "totp_enabled": row[4] if len(row) > 4 else False
+        "message": f"User '{username}' has been permanently deleted",
+        "deleted_user": username,
+        "user_id": user_id,
+        "deleted_records": deleted_counts
     }
 
-# ---------- 2FA Endpoints ----------
-@router.post("/2fa/setup")
-async def setup_2fa(payload: dict = Depends(verify_token)):
-    """Setup 2FA for the current user."""
-    username = payload.get("sub")
-    
-    secret = pyotp.random_base32()
-    totp = pyotp.TOTP(secret)
-    provisioning_uri = totp.provisioning_uri(username, issuer_name="FraudGuard")
-    
-    qr = qrcode.make(provisioning_uri)
-    buffered = BytesIO()
-    qr.save(buffered, format="PNG")
-    qr_base64 = base64.b64encode(buffered.getvalue()).decode()
-    
+# ---------- User activity (ADMIN ONLY) ----------
+@router.get("/users/{user_id}/activity")
+async def get_user_activity(user_id: int, current_user=Depends(get_current_admin)):
+    logger.info(f"📊 get_user_activity called for user_id: {user_id}")
     db = Database()
-    db.store_totp_secret(username, secret)
     
-    return {
-        "secret": secret,
-        "qr_code": f"data:image/png;base64,{qr_base64}",
-        "provisioning_uri": provisioning_uri
-    }
-
-@router.post("/2fa/verify-setup")
-async def verify_2fa_setup(request: TwoFactorSetupRequest, payload: dict = Depends(verify_token)):
-    """Verify and enable 2FA."""
-    username = payload.get("sub")
-    
-    db = Database()
-    secret = db.get_totp_secret(username)
-    if not secret:
-        raise HTTPException(400, "2FA setup not initiated")
-    
-    totp = pyotp.TOTP(secret)
-    if not totp.verify(request.code):
-        raise HTTPException(400, "Invalid verification code")
-    
-    db.enable_2fa(username, secret)
-    db.log_user_activity(username, "2fa_enabled", {"message": "2FA enabled"})
-    
-    return {"message": "2FA enabled successfully"}
-
-@router.post("/2fa/verify")
-async def verify_2fa(request: TwoFactorVerifyRequest):
-    """Verify 2FA code during login."""
-    username = request.username
-    code = request.code
-    
-    db = Database()
-    user = db.get_user_by_username(username)
+    # Get user info
+    user = db.get_user_by_id(user_id)
     if not user:
         raise HTTPException(404, "User not found")
     
-    if not user.get('totp_enabled'):
-        raise HTTPException(400, "2FA not enabled for this user")
+    # Get recent failed logins count
+    with get_connection() as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT COUNT(*) FROM login_logs
+                WHERE username = %s AND success = false
+                AND timestamp > NOW() - INTERVAL '24 hours'
+            """, (user['username'],))
+            user['recent_failed_logins'] = cur.fetchone()['count']
     
-    totp = pyotp.TOTP(user['totp_secret'])
-    if not totp.verify(code):
-        db.log_user_activity(username, "2fa_failed", {"message": "Invalid 2FA code"})
-        raise HTTPException(400, "Invalid 2FA code")
+    # Get activity logs using Database class
+    activity = db.get_user_activity(user['username'], 50)
     
-    db.log_user_activity(username, "2fa_verified", {"message": "2FA verified"})
-    return {"verified": True}
+    # Get login logs using Database class
+    login_logs = db.get_login_logs(50)
+    # Filter for this specific user
+    login_logs = [log for log in login_logs if log['username'] == user['username']]
+    
+    logger.info(f"   Found {len(activity)} activity logs and {len(login_logs)} login logs")
+    
+    return {
+        "user": user,
+        "activity": activity,
+        "login_logs": login_logs,
+    }
 
-@router.post("/2fa/disable")
-async def disable_2fa(request: TwoFactorDisableRequest, payload: dict = Depends(verify_token)):
-    """Disable 2FA."""
-    username = payload.get("sub")
-    
+# ---------- Dashboard summary (ADMIN ONLY) ----------
+@router.get("/dashboard/summary")
+async def get_dashboard_summary(current_user=Depends(get_current_admin)):
+    logger.info("📊 get_dashboard_summary called")
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM users")
+                total_users = cur.fetchone()[0]
+                logger.info(f"   total_users: {total_users}")
+                
+                cur.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
+                active_users = cur.fetchone()[0]
+                
+                cur.execute("SELECT COUNT(*) FROM users WHERE status = 'pending'")
+                pending_approvals = cur.fetchone()[0]
+                
+                cur.execute("SELECT COUNT(*) FROM users WHERE status = 'blocked'")
+                blocked_users = cur.fetchone()[0]
+                
+                cur.execute("""
+                    SELECT COUNT(DISTINCT username) FROM login_logs 
+                    WHERE success = false 
+                    AND timestamp > NOW() - INTERVAL '1 hour'
+                    GROUP BY username
+                    HAVING COUNT(*) > 5
+                """)
+                high_risk_rows = cur.fetchall()
+                high_risk_users = len(high_risk_rows) if high_risk_rows else 0
+                
+                cur.execute("""
+                    SELECT COUNT(*) FROM login_logs 
+                    WHERE success = false 
+                    AND timestamp > NOW() - INTERVAL '24 hours'
+                """)
+                failed_logins_24h = cur.fetchone()[0]
+        
+        return {
+            "total_users": total_users,
+            "active_users": active_users,
+            "pending_approvals": pending_approvals,
+            "blocked_users": blocked_users,
+            "high_risk_users": high_risk_users,
+            "failed_logins_24h": failed_logins_24h,
+        }
+    except Exception as e:
+        logger.error(f"Dashboard summary error: {e}", exc_info=True)
+        raise HTTPException(500, f"Failed to get dashboard summary: {str(e)}")
+
+# ---------- Security alerts (ADMIN ONLY) ----------
+@router.get("/security/alerts")
+async def get_security_alerts(current_user=Depends(get_current_admin)):
+    alerts = []
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT username, COUNT(*) as attempts, MAX(timestamp) as last_attempt
+                FROM login_logs
+                WHERE success = false
+                AND timestamp > NOW() - INTERVAL '15 minutes'
+                GROUP BY username
+                HAVING COUNT(*) > 5
+                ORDER BY last_attempt DESC
+            """)
+            brute_force = cur.fetchall()
+            for row in brute_force:
+                alerts.append({
+                    "id": f"bf-{row[0]}",
+                    "type": "brute_force",
+                    "severity": "high",
+                    "username": row[0],
+                    "message": f"{row[1]} failed login attempts in 15 minutes",
+                    "timestamp": row[2].isoformat() if row[2] else None,
+                })
+    return {"alerts": alerts}
+
+# ---------- Login logs (ADMIN ONLY) ----------
+@router.get("/login-logs")
+async def get_login_logs(
+    page: int = 1,
+    page_size: int = 50,
+    username: Optional[str] = None,
+    current_user=Depends(get_current_admin)
+):
+    logger.info(f"📊 get_login_logs called, page: {page}, page_size: {page_size}")
     db = Database()
-    user = db.get_user_by_username(username)
-    if not user:
-        raise HTTPException(404, "User not found")
+    logs = db.get_login_logs(page_size * page)
     
-    if not user.get('totp_enabled'):
-        raise HTTPException(400, "2FA is not enabled")
+    # Filter by username if provided
+    if username:
+        logs = [log for log in logs if username.lower() in log['username'].lower()]
     
-    totp = pyotp.TOTP(user['totp_secret'])
-    if not totp.verify(request.code):
-        raise HTTPException(400, "Invalid 2FA code")
+    total = len(logs)
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 1
     
-    db.disable_2fa(username)
-    db.log_user_activity(username, "2fa_disabled", {"message": "2FA disabled"})
-    return {"message": "2FA disabled successfully"}
+    # Paginate
+    start = (page - 1) * page_size
+    end = start + page_size
+    paginated_logs = logs[start:end]
+    
+    return {
+        "logs": paginated_logs,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages
+    }
+
+# ---------- Override history (ADMIN ONLY - for audit purposes) ----------
+@router.get("/overrides")
+async def get_overrides(limit: int = 100, current_user=Depends(get_current_admin)):
+    try:
+        services = get_services()
+        db = services.storage_service.db if services.storage_service else None
+        if not db:
+            raise HTTPException(503, "Database service unavailable")
+        overrides = db.get_all_overrides(limit)
+        return {"overrides": overrides}
+    except Exception as e:
+        logger.error(f"Error fetching overrides: {e}", exc_info=True)
+        raise HTTPException(500, "Failed to fetch override history")
+
+# ---------- Single transaction override (ADMIN ONLY) ----------
+@router.post("/transactions/override")
+async def override_transaction(request: Request, current_user=Depends(get_current_admin)):
+    try:
+        data = await request.json()
+        transaction_id = data.get('transaction_id')
+        new_decision = data.get('new_decision')
+        reason = data.get('reason', '')
+        username = current_user.get('sub') if isinstance(current_user, dict) else 'admin'
+
+        if not transaction_id or not new_decision:
+            raise HTTPException(400, "transaction_id and new_decision are required")
+
+        services = get_services()
+        storage = services.storage_service
+        if not storage:
+            raise HTTPException(503, "Storage service unavailable")
+
+        tx = storage.get_transaction(transaction_id)
+        if not tx:
+            raise HTTPException(404, "Transaction not found")
+
+        original_decision = tx.get('decision')
+        storage.set_override(transaction_id, original_decision, new_decision, username, reason)
+
+        risk_map = {'APPROVE': 'LOW', 'BLOCK': 'HIGH', 'REVIEW': 'MEDIUM'}
+        new_risk = risk_map.get(new_decision, 'MEDIUM')
+        storage.update_transaction_decision(transaction_id, new_decision, new_risk)
+
+        return {"message": f"Transaction {transaction_id} overridden to {new_decision}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error overriding transaction: {e}", exc_info=True)
+        raise HTTPException(500, "Failed to override transaction")
+
+# ---------- Bulk approve (ADMIN ONLY) ----------
+@router.post("/transactions/bulk-approve")
+async def bulk_approve(current_user=Depends(get_current_admin)):
+    try:
+        services = get_services()
+        storage = services.storage_service
+        db = services.storage_service.db
+        reviews = storage.get_transactions(limit=1000, decision='REVIEW')
+        count = 0
+        username = current_user.get('sub') if isinstance(current_user, dict) else 'admin'
+        for tx in reviews:
+            tx_id = tx['transaction_id']
+            storage.set_override(tx_id, tx['decision'], 'APPROVE', username, 'Bulk approval')
+            db.update_transaction_decision(tx_id, 'APPROVE', 'LOW')
+            count += 1
+        return {"message": f"Approved {count} transactions"}
+    except Exception as e:
+        logger.error(f"Bulk approve failed: {e}", exc_info=True)
+        raise HTTPException(500, "Bulk approve failed")
+
+# ---------- Get all users (ADMIN ONLY) ----------
+@router.get("/users")
+async def get_all_users(
+    page: int = 1,
+    page_size: int = 15,
+    search: Optional[str] = None,
+    role: Optional[str] = None,
+    status: Optional[str] = None,
+    current_user=Depends(get_current_admin)
+):
+    try:
+        logger.info(f"📊 get_all_users called - page: {page}, search: {search}, role: {role}, status: {status}")
+        db = Database()
+        users = db.get_all_users()
+        
+        logger.info(f"   Found {len(users)} total users in database")
+        
+        # Apply filters
+        if search:
+            users = [u for u in users if search.lower() in u['username'].lower()]
+            logger.info(f"   After search filter: {len(users)} users")
+        if role:
+            users = [u for u in users if u['role'] == role]
+            logger.info(f"   After role filter: {len(users)} users")
+        if status:
+            users = [u for u in users if u['status'] == status]
+            logger.info(f"   After status filter: {len(users)} users")
+        
+        total = len(users)
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+        
+        # Paginate
+        start = (page - 1) * page_size
+        end = start + page_size
+        paginated_users = users[start:end]
+        
+        logger.info(f"   Returning {len(paginated_users)} users (page {page} of {total_pages})")
+        
+        return {
+            "users": paginated_users,
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages
+        }
+    except Exception as e:
+        logger.error(f"Error fetching users: {e}", exc_info=True)
+        raise HTTPException(500, f"Failed to fetch users: {str(e)}")
+
+# ---------- Export router ----------
+__all__ = ['router']
