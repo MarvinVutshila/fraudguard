@@ -1,49 +1,91 @@
 import axios from 'axios';
 
-// You can set baseURL from environment, but for Vite proxy it's not needed
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
 const api = axios.create({
-  baseURL: '',  // empty means relative to the current origin
-  headers: { 'Content-Type': 'application/json' },
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-// Request interceptor: add token
+// Flag to prevent multiple refresh requests
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+// Subscribe to token refresh
+function subscribeTokenRefresh(callback) {
+  refreshSubscribers.push(callback);
+}
+
+// Notify subscribers when token is refreshed
+function onTokenRefreshed(token) {
+  refreshSubscribers.forEach(callback => callback(token));
+  refreshSubscribers = [];
+}
+
+// Request interceptor to add token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('fg_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-    } else {
-      console.warn('[api] No token found in localStorage');
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Response interceptor: handle 401 and 403 (blocked)
+// Response interceptor to handle token refresh
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    const status = error.response?.status;
-    const detail = error.response?.data?.detail || '';
-
-    // 401: Unauthorized → always redirect to login
-    if (status === 401) {
-      localStorage.removeItem('fg_token');
-      window.location.href = '/login';
-      return Promise.reject(error);
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // If error is 401 and we haven't tried to refresh yet
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      // Don't try to refresh if already refreshing
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          subscribeTokenRefresh((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            resolve(api(originalRequest));
+          });
+        });
+      }
+      
+      isRefreshing = true;
+      
+      const refreshToken = localStorage.getItem('fg_refresh_token');
+      if (refreshToken) {
+        try {
+          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+            refresh_token: refreshToken
+          });
+          
+          const { access_token } = response.data;
+          localStorage.setItem('fg_token', access_token);
+          
+          // Notify subscribers
+          onTokenRefreshed(access_token);
+          
+          // Retry the original request with new token
+          originalRequest.headers.Authorization = `Bearer ${access_token}`;
+          return api(originalRequest);
+        } catch (refreshError) {
+          // Refresh failed - logout user
+          localStorage.removeItem('fg_token');
+          localStorage.removeItem('fg_refresh_token');
+          localStorage.removeItem('fg_role');
+          window.location.href = '/login';
+          return Promise.reject(refreshError);
+        } finally {
+          isRefreshing = false;
+        }
+      }
     }
-
-    // 403: Forbidden – check if it's because the account is blocked/rejected/pending
-    if (status === 403 && detail.includes('Account is')) {
-      // e.g., "Account is blocked. Access denied."
-      localStorage.removeItem('fg_token');
-      window.location.href = '/login';
-      return Promise.reject(error);
-    }
-
-    // For other 403 errors (e.g., "Admin access required"), just reject
-    // so the component can show a user-friendly message.
     return Promise.reject(error);
   }
 );
