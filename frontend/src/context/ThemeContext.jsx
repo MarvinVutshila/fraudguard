@@ -23,11 +23,9 @@ export const ThemeProvider = ({ children }) => {
     // Apply theme to document using ONLY data-theme attribute
     if (isDarkMode) {
       document.documentElement.setAttribute('data-theme', 'dark');
-      // REMOVED: document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.setAttribute('data-theme', 'light');
-      // REMOVED: document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
     
