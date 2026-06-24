@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from contextlib import asynccontextmanager
 import logging
 import os
-from datetime import datetime  # ✅ ADDED: For checking block time
+from datetime import datetime
 from pydantic import BaseModel
 from fraud_detection.core.config import MODELS_DIR, DB_DSN, LOG_LEVEL, APPROVE_THRESHOLD, BLOCK_THRESHOLD
 from fraud_detection.ml.inference.model_loader import load_artefacts
@@ -18,6 +18,7 @@ from fraud_detection.api import router
 from fraud_detection.api.dependencies import set_services
 from fraud_detection.api.routes.auth import create_access_token
 from fastapi.middleware.cors import CORSMiddleware
+from jose import jwt  # ✅ ADD THIS IMPORT
 
 logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger(__name__)
@@ -80,7 +81,7 @@ app = FastAPI(
 # ---- CORS Middleware ----
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Update with your frontend URL in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -124,11 +125,17 @@ async def track_last_active_and_check_blocked(request: Request, call_next):
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         try:
-            from fraud_detection.api.routes.auth import verify_token
-            payload = verify_token(token)
+            # ✅ Decode token directly without using verify_token
+            SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+            payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            
+            # Check token type
+            if payload.get("type") != "access":
+                return await call_next(request)
+            
             username = payload.get("sub")
             
-            # ✅ Get token issued at time
+            # Get token issued at time
             token_iat = payload.get("iat")
             if token_iat:
                 token_issued_at = datetime.fromtimestamp(token_iat)
@@ -144,7 +151,7 @@ async def track_last_active_and_check_blocked(request: Request, call_next):
                     if user.get('status') == 'blocked':
                         blocked_at = user.get('blocked_at')
                         
-                        # ✅ If token was issued BEFORE the user was blocked, reject immediately
+                        # If token was issued BEFORE the user was blocked, reject immediately
                         if blocked_at and token_issued_at:
                             if isinstance(blocked_at, str):
                                 blocked_at = datetime.fromisoformat(blocked_at.replace('Z', '+00:00'))
