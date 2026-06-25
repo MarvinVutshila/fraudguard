@@ -10,8 +10,8 @@ from datetime import datetime
 from tqdm import tqdm
 
 API_URL = os.getenv("API_URL", "https://fraudguard-434w.onrender.com/predict/batch")
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", 100))
-DAILY_LIMIT = int(os.getenv("DAILY_LIMIT", 100))
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", 300))
+DAILY_LIMIT = int(os.getenv("DAILY_LIMIT", 300))
 CSV_FILE = os.getenv("CSV_FILE", "data/simulation.csv")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
