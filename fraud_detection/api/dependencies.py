@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 import os
 from typing import Optional, Dict, Any
-from datetime import datetime  # ✅ ADDED: For checking block time
+from datetime import datetime
 
 # Import from the correct location
 from fraud_detection.api.routes.auth import verify_token
@@ -13,6 +13,9 @@ security = HTTPBearer()
 
 # Global services object (set by main.py)
 _services = None
+
+# Support contact information
+SUPPORT_EMAIL = "marvin@support.co.za"
 
 def set_services(services):
     """Set the global services instance (called from main.py startup)"""
@@ -35,7 +38,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         if not username:
             raise HTTPException(status_code=401, detail="Invalid token: no username")
         
-        # ✅ Get token issued at time
+        # Get token issued at time
         token_iat = payload.get("iat")
         if token_iat:
             token_issued_at = datetime.fromtimestamp(token_iat)
@@ -47,39 +50,38 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
-        # 🔒 IMMEDIATE BLOCK CHECK - Check if user is blocked
+        # 🔒 Check if user is blocked - IMMEDIATELY REJECT
         if user.get('status') == 'blocked':
             blocked_at = user.get('blocked_at')
             
-            # ✅ If token was issued BEFORE the user was blocked, reject immediately
+            # If token was issued BEFORE the user was blocked, reject immediately
             if blocked_at and token_issued_at:
-                # Convert blocked_at to datetime if it's a string
                 if isinstance(blocked_at, str):
                     blocked_at = datetime.fromisoformat(blocked_at.replace('Z', '+00:00'))
                 
                 if token_issued_at < blocked_at:
                     raise HTTPException(
                         status_code=403, 
-                        detail="Your account was blocked. Please log in again."
+                        detail=f"Your account has been blocked.\n\nIf you believe this is an error, please contact your system administrator at {SUPPORT_EMAIL}."
                     )
             
             raise HTTPException(
                 status_code=403, 
-                detail="Your account has been blocked. Please contact support."
+                detail=f"Your account has been blocked.\n\nIf you believe this is an error, please contact your system administrator at {SUPPORT_EMAIL}."
             )
         
         # Check if user is deleted
         if user.get('status') == 'deleted':
             raise HTTPException(
                 status_code=403, 
-                detail="Your account has been deleted."
+                detail="Your account has been deleted.\n\nIf you believe this is an error, please contact your system administrator."
             )
         
         # Check if user is pending or rejected
         if user.get('status') in ['pending', 'rejected']:
             raise HTTPException(
                 status_code=403, 
-                detail=f"Your account is {user.get('status')}. Please contact support."
+                detail=f"Your account is {user.get('status')}.\n\nIf you believe this is an error, please contact your system administrator."
             )
         
         return user
@@ -140,5 +142,6 @@ __all__ = [
     'get_optional_user',
     'get_current_user_optional',
     'get_current_admin_user',
-    'security'
+    'security',
+    'SUPPORT_EMAIL'
 ]
