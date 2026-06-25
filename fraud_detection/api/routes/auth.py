@@ -37,6 +37,9 @@ pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 # In-memory rate limiting
 login_attempts: Dict[str, list] = {}
 
+# ---------- Support Configuration ----------
+SUPPORT_EMAIL = "marvin@support.co.za"
+
 # ---------- Helper Functions ----------
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -51,7 +54,7 @@ def create_access_token(data: dict) -> str:
     to_encode.update({
         "exp": expire,
         "type": "access",
-        "iat": now  # ✅ ADDED: Issued at time for immediate block detection
+        "iat": now
     })
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -62,7 +65,7 @@ def create_refresh_token(data: dict) -> str:
     to_encode.update({
         "exp": expire,
         "type": "refresh",
-        "iat": now  # ✅ ADDED: Issued at time for immediate block detection
+        "iat": now
     })
     return jwt.encode(to_encode, REFRESH_SECRET_KEY, algorithm=ALGORITHM)
 
@@ -147,15 +150,24 @@ async def login(creds: LoginRequest, request: Request):
                 if status == "blocked":
                     db = Database()
                     db.log_login_attempt(creds.username, False, client_ip, user_agent)
-                    raise HTTPException(403, detail="Your account has been blocked. Please contact support.")
+                    raise HTTPException(
+                        403, 
+                        detail=f"Your account has been blocked.\n\nIf you believe this is an error, please contact your system administrator at {SUPPORT_EMAIL}."
+                    )
                 elif status == "deleted":
                     db = Database()
                     db.log_login_attempt(creds.username, False, client_ip, user_agent)
-                    raise HTTPException(403, detail="Your account has been deleted.")
+                    raise HTTPException(
+                        403, 
+                        detail="Your account has been deleted.\n\nIf you believe this is an error, please contact your system administrator."
+                    )
                 elif status in ["pending", "rejected"]:
                     db = Database()
                     db.log_login_attempt(creds.username, False, client_ip, user_agent)
-                    raise HTTPException(403, detail=f"Your account is {status}. Please contact support.")
+                    raise HTTPException(
+                        403, 
+                        detail=f"Your account is {status}.\n\nIf you believe this is an error, please contact your system administrator."
+                    )
                 
                 # Only verify password if status is active
                 if status == "active" and verify_password(creds.password, hashed):
@@ -172,7 +184,10 @@ async def login(creds: LoginRequest, request: Request):
         elif status == "rejected":
             raise HTTPException(403, detail="Account rejected by admin.")
         elif status == "blocked":
-            raise HTTPException(403, detail="Account blocked.")
+            raise HTTPException(
+                403, 
+                detail=f"Your account has been blocked.\n\nIf you believe this is an error, please contact your system administrator at {SUPPORT_EMAIL}."
+            )
         else:
             raise HTTPException(401, detail="Invalid credentials")
 
