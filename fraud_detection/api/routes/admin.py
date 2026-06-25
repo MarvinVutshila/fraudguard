@@ -1,10 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from fraud_detection.database.postgres_db import get_connection, Database
 from fraud_detection.api.dependencies import get_current_admin, get_services
 from psycopg2.extras import RealDictCursor
 from typing import Optional
 import logging
+import csv
+from io import StringIO
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -484,6 +488,214 @@ async def get_all_users(
     except Exception as e:
         logger.error(f"Error fetching users: {e}", exc_info=True)
         raise HTTPException(500, f"Failed to fetch users: {str(e)}")
+
+# ========== CSV EXPORT ENDPOINTS ==========
+
+# ---------- Export Users as CSV ----------
+@router.get("/export/users")
+async def export_users_csv(
+    search: Optional[str] = None,
+    role: Optional[str] = None,
+    status: Optional[str] = None,
+    current_user=Depends(get_current_admin)
+):
+    """Export users data as CSV"""
+    try:
+        db = Database()
+        users = db.get_all_users()
+        
+        # Apply filters
+        if search:
+            users = [u for u in users if search.lower() in u['username'].lower()]
+        if role:
+            users = [u for u in users if u['role'] == role]
+        if status:
+            users = [u for u in users if u['status'] == status]
+        
+        # Create CSV
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Write headers
+        writer.writerow([
+            'ID', 'Username', 'Role', 'Status', 
+            'Last Active', 'Created At', 
+            'Blocked Reason', 'Blocked At', '2FA Enabled'
+        ])
+        
+        # Write data
+        for user in users:
+            writer.writerow([
+                user.get('id', ''),
+                user.get('username', ''),
+                user.get('role', ''),
+                user.get('status', ''),
+                user.get('last_active', ''),
+                user.get('created_at', ''),
+                user.get('blocked_reason', ''),
+                user.get('blocked_at', ''),
+                'Yes' if user.get('totp_enabled') else 'No'
+            ])
+        
+        # Return as CSV file
+        output.seek(0)
+        filename = f"users_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        
+        return StreamingResponse(
+            output,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        logger.error(f"Error exporting users: {e}", exc_info=True)
+        raise HTTPException(500, f"Failed to export users: {str(e)}")
+
+# ---------- Export Login Logs as CSV ----------
+@router.get("/export/login-logs")
+async def export_login_logs_csv(
+    username: Optional[str] = None,
+    current_user=Depends(get_current_admin)
+):
+    """Export login logs as CSV"""
+    try:
+        db = Database()
+        logs = db.get_login_logs(1000)  # Get last 1000 logs
+        
+        # Filter by username if provided
+        if username:
+            logs = [log for log in logs if username.lower() in log['username'].lower()]
+        
+        # Create CSV
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Write headers
+        writer.writerow([
+            'Username', 'Status', 'IP Address', 'User Agent', 'Timestamp'
+        ])
+        
+        # Write data
+        for log in logs:
+            writer.writerow([
+                log.get('username', ''),
+                '✓ Success' if log.get('success') else '✗ Failed',
+                log.get('ip', ''),
+                log.get('user_agent', ''),
+                log.get('timestamp', '')
+            ])
+        
+        # Return as CSV file
+        output.seek(0)
+        filename = f"login_logs_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        
+        return StreamingResponse(
+            output,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        logger.error(f"Error exporting login logs: {e}", exc_info=True)
+        raise HTTPException(500, f"Failed to export login logs: {str(e)}")
+
+# ---------- Export Transactions as CSV ----------
+@router.get("/export/transactions")
+async def export_transactions_csv(
+    decision: Optional[str] = None,
+    limit: int = 1000,
+    current_user=Depends(get_current_admin)
+):
+    """Export transactions as CSV"""
+    try:
+        services = get_services()
+        storage = services.storage_service
+        if not storage:
+            raise HTTPException(503, "Storage service unavailable")
+        
+        transactions = storage.get_transactions(limit=limit, decision=decision)
+        
+        # Create CSV
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Write headers
+        writer.writerow([
+            'Transaction ID', 'Amount', 'Probability', 
+            'Decision', 'Risk Level', 'Effective Decision', 
+            'Overridden By', 'Timestamp'
+        ])
+        
+        # Write data
+        for tx in transactions:
+            effective = tx.get('effective_decision', tx.get('decision', ''))
+            writer.writerow([
+                tx.get('transaction_id', ''),
+                tx.get('amount', 0),
+                tx.get('probability', 0),
+                tx.get('decision', ''),
+                tx.get('risk_level', ''),
+                effective,
+                tx.get('overridden_by', ''),
+                tx.get('timestamp', '')
+            ])
+        
+        # Return as CSV file
+        output.seek(0)
+        filename = f"transactions_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        
+        return StreamingResponse(
+            output,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        logger.error(f"Error exporting transactions: {e}", exc_info=True)
+        raise HTTPException(500, f"Failed to export transactions: {str(e)}")
+
+# ---------- Export User Activity as CSV ----------
+@router.get("/export/user-activity/{user_id}")
+async def export_user_activity_csv(
+    user_id: int,
+    current_user=Depends(get_current_admin)
+):
+    """Export a specific user's activity as CSV"""
+    try:
+        db = Database()
+        user = db.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(404, "User not found")
+        
+        activity = db.get_user_activity(user['username'], 1000)
+        
+        # Create CSV
+        output = StringIO()
+        writer = csv.writer(output)
+        
+        # Write headers
+        writer.writerow([
+            'Username', 'Action', 'Details', 'Timestamp'
+        ])
+        
+        # Write data
+        for act in activity:
+            writer.writerow([
+                act.get('username', ''),
+                act.get('action', ''),
+                act.get('details', ''),
+                act.get('timestamp', '')
+            ])
+        
+        # Return as CSV file
+        output.seek(0)
+        filename = f"user_activity_{user['username']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        
+        return StreamingResponse(
+            output,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        logger.error(f"Error exporting user activity: {e}", exc_info=True)
+        raise HTTPException(500, f"Failed to export user activity: {str(e)}")
 
 # ---------- Export router ----------
 __all__ = ['router']
