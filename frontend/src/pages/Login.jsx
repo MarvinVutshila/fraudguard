@@ -47,7 +47,12 @@ export default function Login() {
       console.log('📦 Response data:', data);
       
       if (!response.ok) {
-        throw new Error(data.detail || 'Login failed');
+        // ✅ Check if the error message has newlines (support email)
+        let errorMessage = data.detail || 'Login failed';
+        
+        // ✅ If the message contains newlines, keep them for display
+        // The frontend will render them with white-space: pre-wrap
+        throw new Error(errorMessage);
       }
       
       // Store tokens
@@ -67,7 +72,8 @@ export default function Login() {
       } else if (err.message.includes('401')) {
         setError('Invalid email or password. Please try again.');
       } else {
-        setError(err.message || 'Login failed. Please try again.');
+        // ✅ Display the full error message (including support email)
+        setError(err.message);
       }
     } finally {
       setLoading(false);
@@ -204,7 +210,23 @@ export default function Login() {
                   />
                 </div>
               </div>
-              {error && <div className="error-message">{error}</div>}
+              {/* ✅ Display full error message with line breaks */}
+              {error && (
+                <div className="error-message" style={{ 
+                  whiteSpace: 'pre-wrap', 
+                  wordBreak: 'break-word',
+                  padding: '12px 16px',
+                  background: 'rgba(239,68,68,0.1)',
+                  border: '1px solid rgba(239,68,68,0.3)',
+                  borderRadius: '8px',
+                  marginBottom: '12px',
+                  color: '#fca5a5',
+                  fontSize: '0.85rem',
+                  lineHeight: '1.6'
+                }}>
+                  {error}
+                </div>
+              )}
               <button type="submit" className="btn-login" disabled={loading}>
                 {loading ? 'Signing in…' : 'Sign In →'}
               </button>
