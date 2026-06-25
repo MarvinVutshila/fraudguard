@@ -28,8 +28,8 @@ jobs:
       - name: Run ingestion script
         env:
           API_URL: https://fraudguard-434w.onrender.com/predict/batch
-          BATCH_SIZE: 100
-          DAILY_LIMIT: 100
+          BATCH_SIZE: 300
+          DAILY_LIMIT: 300
           CSV_FILE: data/simulation.csv
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
