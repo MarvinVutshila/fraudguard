@@ -537,7 +537,7 @@ function AlertsPanel({ onAck }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Users Table Tab with ADMIN PROTECTION
+// Users Table Tab with ADMIN PROTECTION and EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
 
 function UsersTable({ onRefreshSummary }) {
@@ -590,6 +590,30 @@ function UsersTable({ onRefreshSummary }) {
     }, 350);
   };
 
+  // ========== EXPORT USERS ==========
+  const exportUsersCSV = async () => {
+    try {
+      showToast('Exporting users...', true);
+      const response = await api.get('/admin/export/users', {
+        params: { search, role: roleFilter, status: statusFilter },
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `users_export_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      showToast('Users exported successfully!', true);
+    } catch (err) {
+      console.error('Export failed:', err);
+      showToast('Failed to export users: ' + (err.response?.data?.detail || err.message), false);
+    }
+  };
+
   // ═══════════════════════════════════════════════════════════
   // 🔒 ADMIN PROTECTION: Block destructive actions on admins
   // ═══════════════════════════════════════════════════════════
@@ -621,15 +645,6 @@ function UsersTable({ onRefreshSummary }) {
     } finally {
       setActionLoading(false);
     }
-  };
-
-  // Check if action is allowed
-  const isActionAllowed = (user, action) => {
-    // 🔒 NEVER allow destructive actions on admins
-    if (user.role === 'admin') return false;
-    // Additional checks for specific actions
-    if (action === 'delete' && user.status === 'deleted') return false;
-    return true;
   };
 
   return (
@@ -664,6 +679,10 @@ function UsersTable({ onRefreshSummary }) {
         <FilterSelect value={statusFilter} onChange={(v) => { setStatusFilter(v); setPage(1); }} options={['', 'active', 'pending', 'blocked', 'rejected', 'deleted']} labels={['All Statuses', 'Active', 'Pending', 'Blocked', 'Rejected', 'Deleted']} />
         <button className="btn-secondary" onClick={() => { setSearch(''); setSearchInput(''); setRoleFilter(''); setStatusFilter(''); setPage(1); }}>
           ↺ Clear
+        </button>
+        {/* ✅ EXPORT BUTTON */}
+        <button className="btn-success" onClick={exportUsersCSV}>
+          ⬇ Export CSV
         </button>
         <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginLeft: 'auto' }}>
           {total} user{total !== 1 ? 's' : ''}
@@ -857,7 +876,7 @@ function FilterSelect({ value, onChange, options, labels }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Login Logs Tab
+// Login Logs Tab with EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
 
 function LoginLogsTab() {
@@ -868,6 +887,7 @@ function LoginLogsTab() {
   const [total, setTotal] = useState(0);
   const [usernameFilter, setUsernameFilter] = useState('');
   const [inputVal, setInputVal] = useState('');
+  const [exporting, setExporting] = useState(false);
   const searchTimer = useRef();
 
   const load = useCallback(async () => {
@@ -901,6 +921,31 @@ function LoginLogsTab() {
     searchTimer.current = setTimeout(() => { setUsernameFilter(val); setPage(1); }, 350);
   };
 
+  // ========== EXPORT LOGIN LOGS ==========
+  const exportLoginLogsCSV = async () => {
+    setExporting(true);
+    try {
+      const response = await api.get('/admin/export/login-logs', {
+        params: { username: usernameFilter || undefined },
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `login_logs_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Failed to export login logs: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
@@ -918,6 +963,10 @@ function LoginLogsTab() {
           />
         </div>
         <button className="btn-secondary" onClick={load}>↺ Refresh</button>
+        {/* ✅ EXPORT BUTTON */}
+        <button className="btn-success" onClick={exportLoginLogsCSV} disabled={exporting || logs.length === 0}>
+          {exporting ? 'Exporting…' : '⬇ Export CSV'}
+        </button>
         <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginLeft: 'auto' }}>
           {total} record{total !== 1 ? 's' : ''}
         </span>
