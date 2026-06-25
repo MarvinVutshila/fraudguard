@@ -23,6 +23,11 @@ from jose import jwt  # ✅ ADD THIS IMPORT
 logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
+# ---------- Support Configuration ----------
+SUPPORT_EMAIL = "marvin@support.co.za"
+SUPPORT_PHONE = "+27 82 123 4567"
+
+# ---------- Service Classes ----------
 class Services:
     pass
 
@@ -160,27 +165,35 @@ async def track_last_active_and_check_blocked(request: Request, call_next):
                                 logger.warning(f"🚫 Blocked user (token issued before block) attempted: {username} - {request.url.path}")
                                 return JSONResponse(
                                     status_code=403,
-                                    content={"detail": "Your account was blocked. Please log in again."}
+                                    content={
+                                        "detail": f"Your account has been blocked.\n\nIf you believe this is an error, please contact your system administrator at {SUPPORT_EMAIL}."
+                                    }
                                 )
                         
                         logger.warning(f"🚫 Blocked user attempted: {username} - {request.url.path}")
                         return JSONResponse(
                             status_code=403,
-                            content={"detail": "Your account has been blocked. Please contact support."}
+                            content={
+                                "detail": f"Your account has been blocked.\n\nIf you believe this is an error, please contact your system administrator at {SUPPORT_EMAIL}."
+                            }
                         )
                     
                     if user.get('status') == 'deleted':
                         logger.warning(f"🚫 Deleted user attempted: {username} - {request.url.path}")
                         return JSONResponse(
                             status_code=403,
-                            content={"detail": "Your account has been deleted."}
+                            content={
+                                "detail": "Your account has been deleted.\n\nIf you believe this is an error, please contact your system administrator."
+                            }
                         )
                     
                     if user.get('status') in ['pending', 'rejected']:
                         logger.warning(f"🚫 {user.get('status')} user attempted: {username} - {request.url.path}")
                         return JSONResponse(
                             status_code=403,
-                            content={"detail": f"Your account is {user.get('status')}. Please contact support."}
+                            content={
+                                "detail": f"Your account is {user.get('status')}.\n\nIf you believe this is an error, please contact your system administrator."
+                            }
                         )
                     
                     # Update last_active if user is active
