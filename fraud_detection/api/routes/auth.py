@@ -38,7 +38,7 @@ pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 login_attempts: Dict[str, list] = {}
 
 # ---------- Support Configuration ----------
-SUPPORT_EMAIL = "marvin@support.co.za"
+SUPPORT_EMAIL = "support@fraudguard.co.za"
 
 # ---------- Helper Functions ----------
 def hash_password(password: str) -> str:
