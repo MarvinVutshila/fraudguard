@@ -12,29 +12,14 @@ export default function History() {
   const [page, setPage] = useState(1);
   const pageSize = 25;
 
-  // NEW: aggregated counts (blocked, review, overridden) from the server
-  const [summary, setSummary] = useState({
-    blocked: 0,
-    review: 0,
-    overridden: 0,
-  });
-
-  // Fetch the transaction list (now sends filter params to the API)
   const fetchHistory = async () => {
     try {
-      const params = new URLSearchParams();
-      params.set('limit', '1500');
-      if (search) params.set('search', search);
-      if (decisionFilter) params.set('decision', decisionFilter);
-      if (riskFilter) params.set('risk_level', riskFilter);
-
-      const res = await api.get(`/transactions?${params}`);
+      const res = await api.get('/transactions?limit=1500');
       const data = res.data.transactions || [];
       const total = res.data.total || data.length;
-
       setTransactions(data);
       setTotalCount(total);
-      setFiltered(data);   // API already applies filters
+      applyFilters(data);
     } catch (err) {
       console.error('Failed to fetch history:', err);
     } finally {
@@ -42,53 +27,38 @@ export default function History() {
     }
   };
 
-  // NEW: fetch aggregated summary counts (separate call)
-  const fetchSummary = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (search) params.set('search', search);
-      if (decisionFilter) params.set('decision', decisionFilter);
-      if (riskFilter) params.set('risk_level', riskFilter);
-
-      const res = await api.get(`/transactions/summary?${params}`);
-      setSummary({
-        blocked: res.data.blocked || 0,
-        review: res.data.review || 0,
-        overridden: res.data.overridden || 0,
-      });
-    } catch (err) {
-      console.error('Summary endpoint not available – using local counts as fallback.');
-      // fallback to client-side counts (works but may not match dashboard)
-      setSummary({
-        blocked: filtered.filter(t => t.decision === 'BLOCK').length,
-        review: filtered.filter(t => t.decision === 'REVIEW').length,
-        overridden: filtered.filter(t => t.overridden).length,
-      });
+  const applyFilters = (data = transactions) => {
+    let result = data;
+    if (search) {
+      result = result.filter(tx =>
+        (tx.transaction_id || '').toLowerCase().includes(search.toLowerCase())
+      );
     }
+    if (decisionFilter) {
+      result = result.filter(tx => tx.decision === decisionFilter);
+    }
+    if (riskFilter) {
+      result = result.filter(tx => tx.risk_level === riskFilter);
+    }
+    setFiltered(result);
+    setPage(1);
   };
 
-  // Initial load
   useEffect(() => {
     fetchHistory();
-    fetchSummary();  // <-- fetch summary right away
-    const onRefresh = () => {
-      fetchHistory();
-      fetchSummary();
-    };
+    const onRefresh = () => fetchHistory();
     window.addEventListener('refresh', onRefresh);
     return () => window.removeEventListener('refresh', onRefresh);
   }, []);
 
-  // Re‑fetch everything when filters change
   useEffect(() => {
-    fetchHistory();
-    fetchSummary();
-  }, [search, decisionFilter, riskFilter]);
+    applyFilters();
+  }, [search, decisionFilter, riskFilter, transactions]);
 
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
   const totalPages = Math.ceil(filtered.length / pageSize);
 
-  // Compact page numbers (never overflows)
+  // ✅ Smart page‑number list – never overflows
   const getPageNumbers = (currentPage, totalPages, maxVisible = 5) => {
     if (totalPages <= maxVisible + 2) {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -171,7 +141,7 @@ export default function History() {
               <option value="HIGH">High</option>
               <option value="CRITICAL">Critical</option>
             </select>
-            <button className="btn-secondary" onClick={() => { fetchHistory(); fetchSummary(); }}>
+            <button className="btn-secondary" onClick={fetchHistory}>
               ↺ Refresh
             </button>
             <button className="btn-primary" onClick={exportCSV}>
@@ -180,12 +150,17 @@ export default function History() {
           </div>
         </div>
 
-        {/* STATS BADGES – now using server‑side summary */}
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
           <span className="risk-badge low">Total: {totalCount}</span>
-          <span className="risk-badge high">Blocked: {summary.blocked}</span>
-          <span className="risk-badge medium">Review: {summary.review}</span>
-          <span className="risk-badge critical">Overridden: {summary.overridden}</span>
+          <span className="risk-badge high">
+            Blocked: {filtered.filter(t => t.decision === 'BLOCK').length}
+          </span>
+          <span className="risk-badge medium">
+            Review: {filtered.filter(t => t.decision === 'REVIEW').length}
+          </span>
+          <span className="risk-badge critical">
+            Overridden: {filtered.filter(t => t.overridden).length}
+          </span>
         </div>
 
         <div className="table-scroll">
@@ -247,7 +222,7 @@ export default function History() {
           </table>
         </div>
 
-        {/* Smart pagination – never more than ~9 buttons */}
+        {/* ✅ Smart pagination – no more overlap */}
         {totalPages > 1 && (
           <div
             style={{
