@@ -14,12 +14,20 @@ export default function History() {
 
   const fetchHistory = async () => {
     try {
-      const res = await api.get('/transactions?limit=1500');
+      // ✅ Build query with all current filters
+      const params = new URLSearchParams();
+      params.set('limit', '1500');
+      if (search) params.set('search', search);
+      if (decisionFilter) params.set('decision', decisionFilter);
+      if (riskFilter) params.set('risk_level', riskFilter);
+
+      const res = await api.get(`/transactions?${params}`);
       const data = res.data.transactions || [];
       const total = res.data.total || data.length;
+
       setTransactions(data);
-      setTotalCount(total);
-      applyFilters(data);
+      setTotalCount(total);        // now reflects the filtered total ✅
+      setFiltered(data);          // already filtered by the server ✅
     } catch (err) {
       console.error('Failed to fetch history:', err);
     } finally {
@@ -27,23 +35,12 @@ export default function History() {
     }
   };
 
-  const applyFilters = (data = transactions) => {
-    let result = data;
-    if (search) {
-      result = result.filter(tx =>
-        (tx.transaction_id || '').toLowerCase().includes(search.toLowerCase())
-      );
-    }
-    if (decisionFilter) {
-      result = result.filter(tx => tx.decision === decisionFilter);
-    }
-    if (riskFilter) {
-      result = result.filter(tx => tx.risk_level === riskFilter);
-    }
-    setFiltered(result);
-    setPage(1);
-  };
+  // Re‑fetch whenever filters change (no client‑side applyFilters needed)
+  useEffect(() => {
+    fetchHistory();
+  }, [search, decisionFilter, riskFilter]);
 
+  // Initial load & refresh listener
   useEffect(() => {
     fetchHistory();
     const onRefresh = () => fetchHistory();
@@ -51,38 +48,29 @@ export default function History() {
     return () => window.removeEventListener('refresh', onRefresh);
   }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [search, decisionFilter, riskFilter, transactions]);
-
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
   const totalPages = Math.ceil(filtered.length / pageSize);
 
-  // ✅ Smart page‑number list – never overflows
+  // ✅ Smart page‑number list (no overlap even with hundreds of pages)
   const getPageNumbers = (currentPage, totalPages, maxVisible = 5) => {
     if (totalPages <= maxVisible + 2) {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     }
-
     const pages = [];
     pages.push(1);
-
     let start = Math.max(2, currentPage - Math.floor(maxVisible / 2));
     let end = Math.min(totalPages - 1, currentPage + Math.floor(maxVisible / 2));
-
     if (currentPage - 2 < Math.floor(maxVisible / 2)) {
       end = Math.min(totalPages - 1, 1 + maxVisible);
     }
     if (totalPages - currentPage <= Math.floor(maxVisible / 2)) {
       start = Math.max(2, totalPages - maxVisible);
     }
-
     if (start > 2) pages.push('...');
     for (let i = start; i <= end; i++) {
       pages.push(i);
     }
     if (end < totalPages - 1) pages.push('...');
-
     pages.push(totalPages);
     return pages;
   };
@@ -222,7 +210,7 @@ export default function History() {
           </table>
         </div>
 
-        {/* ✅ Smart pagination – no more overlap */}
+        {/* Smart pagination */}
         {totalPages > 1 && (
           <div
             style={{
