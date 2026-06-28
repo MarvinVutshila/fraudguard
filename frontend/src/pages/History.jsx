@@ -12,9 +12,16 @@ export default function History() {
   const [page, setPage] = useState(1);
   const pageSize = 25;
 
+  // Badge counts – starts with 0, then filled from summary or local fallback
+  const [badges, setBadges] = useState({
+    blocked: 0,
+    review: 0,
+    overridden: 0,
+  });
+
+  // Fetch the transaction list (with filters)
   const fetchHistory = async () => {
     try {
-      // ✅ Build query with all current filters
       const params = new URLSearchParams();
       params.set('limit', '1500');
       if (search) params.set('search', search);
@@ -26,8 +33,8 @@ export default function History() {
       const total = res.data.total || data.length;
 
       setTransactions(data);
-      setTotalCount(total);        // now reflects the filtered total ✅
-      setFiltered(data);          // already filtered by the server ✅
+      setTotalCount(total);
+      setFiltered(data);
     } catch (err) {
       console.error('Failed to fetch history:', err);
     } finally {
@@ -35,15 +42,48 @@ export default function History() {
     }
   };
 
-  // Re‑fetch whenever filters change (no client‑side applyFilters needed)
+  // Fetch aggregated summary counts (optional endpoint)
+  const fetchSummary = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (decisionFilter) params.set('decision', decisionFilter);
+      if (riskFilter) params.set('risk_level', riskFilter);
+
+      const res = await api.get(`/transactions/summary?${params}`);
+      setBadges({
+        blocked: res.data.blocked || 0,
+        review: res.data.review || 0,
+        overridden: res.data.overridden || 0,
+      });
+    } catch (err) {
+      // Fallback: count from the currently loaded records
+      console.warn('Summary endpoint not available – using local counts.');
+      setBadges({
+        blocked: filtered.filter(t => t.decision === 'BLOCK').length,
+        review: filtered.filter(t => t.decision === 'REVIEW').length,
+        overridden: filtered.filter(t => t.overridden).length,
+      });
+    }
+  };
+
+  // Fetch both list and summary on mount & filter changes
   useEffect(() => {
     fetchHistory();
   }, [search, decisionFilter, riskFilter]);
 
-  // Initial load & refresh listener
+  useEffect(() => {
+    fetchSummary();
+  }, [search, decisionFilter, riskFilter, filtered]);
+
+  // Initial load + refresh listener
   useEffect(() => {
     fetchHistory();
-    const onRefresh = () => fetchHistory();
+    fetchSummary();
+    const onRefresh = () => {
+      fetchHistory();
+      fetchSummary();
+    };
     window.addEventListener('refresh', onRefresh);
     return () => window.removeEventListener('refresh', onRefresh);
   }, []);
@@ -51,7 +91,6 @@ export default function History() {
   const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
   const totalPages = Math.ceil(filtered.length / pageSize);
 
-  // ✅ Smart page‑number list (no overlap even with hundreds of pages)
   const getPageNumbers = (currentPage, totalPages, maxVisible = 5) => {
     if (totalPages <= maxVisible + 2) {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
@@ -67,9 +106,7 @@ export default function History() {
       start = Math.max(2, totalPages - maxVisible);
     }
     if (start > 2) pages.push('...');
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
+    for (let i = start; i <= end; i++) pages.push(i);
     if (end < totalPages - 1) pages.push('...');
     pages.push(totalPages);
     return pages;
@@ -129,7 +166,7 @@ export default function History() {
               <option value="HIGH">High</option>
               <option value="CRITICAL">Critical</option>
             </select>
-            <button className="btn-secondary" onClick={fetchHistory}>
+            <button className="btn-secondary" onClick={() => { fetchHistory(); fetchSummary(); }}>
               ↺ Refresh
             </button>
             <button className="btn-primary" onClick={exportCSV}>
@@ -140,15 +177,9 @@ export default function History() {
 
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
           <span className="risk-badge low">Total: {totalCount}</span>
-          <span className="risk-badge high">
-            Blocked: {filtered.filter(t => t.decision === 'BLOCK').length}
-          </span>
-          <span className="risk-badge medium">
-            Review: {filtered.filter(t => t.decision === 'REVIEW').length}
-          </span>
-          <span className="risk-badge critical">
-            Overridden: {filtered.filter(t => t.overridden).length}
-          </span>
+          <span className="risk-badge high">Blocked: {badges.blocked}</span>
+          <span className="risk-badge medium">Review: {badges.review}</span>
+          <span className="risk-badge critical">Overridden: {badges.overridden}</span>
         </div>
 
         <div className="table-scroll">
@@ -210,7 +241,6 @@ export default function History() {
           </table>
         </div>
 
-        {/* Smart pagination */}
         {totalPages > 1 && (
           <div
             style={{
