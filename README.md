@@ -9,7 +9,7 @@
 ![GitHub Actions](https://img.shields.io/badge/GitHub-Actions-2088FF?logo=githubactions)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-> **An end-to-end AI-powered fraud detection platform that combines Machine Learning, FastAPI, React, PostgreSQL, and Human-in-the-Loop decision making to detect, monitor, investigate, and manage fraudulent financial transactions in real time.**
+> **An end-to-end AI-powered fraud detection platform combining Machine Learning, FastAPI, React, PostgreSQL, and Human-in-the-Loop decision making to detect, monitor, investigate, and manage fraudulent financial transactions in real time.**
 
 ---
 
@@ -18,12 +18,12 @@
 - Overview
 - Features
 - Screenshots
-- System Architecture
+- Architecture
 - Technology Stack
 - Machine Learning Pipeline
 - Project Structure
 - Installation
-- Running the Application
+- Running Application
 - API Features
 - Model Performance
 - Workflow
@@ -35,290 +35,320 @@
 
 # 🚀 Overview
 
-FraudGuard is a production-style banking fraud detection platform designed to demonstrate how machine learning can be integrated into modern financial systems.
+FraudGuard is a production-style banking fraud detection platform designed to demonstrate how artificial intelligence can be integrated into modern financial systems.
 
-The platform automatically evaluates every incoming transaction using an **XGBoost classification model**. Based on the fraud probability, transactions are automatically:
+The system evaluates transactions using an **XGBoost Machine Learning model** and assigns decisions:
 
 - ✅ Approved
-- ⚖️ Sent for Human Review
+- ⚖️ Human Review
 - 🚫 Blocked
 
-Fraud analysts can manually investigate suspicious transactions before making the final decision.
+The platform includes:
 
-The application combines:
-
-- React Frontend
-- FastAPI REST API
+- React Dashboard
+- FastAPI Backend
 - PostgreSQL Database
-- XGBoost Machine Learning
+- XGBoost Fraud Model
 - Human Approval Workflow
 - Audit Logging
-- Authentication & Authorization
-- Administrative Dashboard
+- JWT Authentication
+- Admin Management Centre
 
 ---
 
 # 🌐 Live Demo
 
-### Frontend
+Frontend:
 
+```
 YOUR_DEPLOYMENT_URL
+```
 
-### Backend API
+Backend API:
 
+```
 http://localhost:8000/docs
+```
 
 ---
 
 # 📸 Application Screenshots
 
----
 
-## 🔐 Login
+## 🔐 Login Page
 
 Secure JWT authentication with role-based access.
 
-![Login](assets/loginPage.png)
+![Login](loginPage.png)
+
 
 ---
 
-## 📡 Live Transaction Dashboard
+## 📡 Transaction Dashboard
 
-Monitor transactions in real time with fraud probability scoring.
+Real-time fraud monitoring dashboard.
 
-![Dashboard](assets/dashboard.png)
+![Dashboard](dashboard.png)
+
 
 ---
 
 ## ⚖️ Human Approval Queue
 
-Transactions requiring analyst review before approval.
+Analysts review suspicious transactions.
 
-![Approval Queue](assets/HumanApproval.png)
+![Human Approval](HumanApproval.png)
+
 
 ---
 
-## 📝 Approval Audit Log
+## 📝 Approval Audit
 
 Complete history of analyst decisions.
 
-![Approval Audit](assets/ApprovalAudit.png)
+![Approval Audit](ApprovalAudit.png)
+
 
 ---
 
 ## 📋 Transaction History
 
-Searchable audit trail with filtering and CSV export.
+Search, filter and export transaction records.
 
-![Transaction History](assets/TransactionHistory.png)
+![Transaction History](TransactionHistory.png)
+
 
 ---
 
 ## 🔍 Single Transaction Prediction
 
-Predict fraud probability for a single transaction.
+Predict fraud probability for individual transactions.
 
-![Single Prediction](assets/SingleTransactionPredict.png)
+![Single Prediction](SingleTransactionPredict.png)
+
 
 ---
 
 ## 📁 Batch Transaction Analysis
 
-Upload CSV files for large-scale fraud detection.
+Upload CSV files and analyse thousands of transactions.
 
-![Batch Analysis](assets/BatchTransactionAnalysis.png)
+![Batch Analysis](BatchTransactionAnalysis.png)
+
 
 ---
 
 ## 🧠 Model Information
 
-Model metrics, thresholds and feature importance.
+View machine learning performance and feature importance.
 
-![Model Information](assets/ModelInformation.png)
+![Model Information](ModelInformation.png)
+
 
 ---
 
 # 🛡️ Administration Centre
 
-### Dashboard
 
-![Admin Dashboard](assets/AdminControlCentre.png)
+## Admin Dashboard
 
----
+![Admin Dashboard](AdminControlCentre.png)
 
-### User Management
-
-![User Management](assets/AdminControlCentre1.png)
 
 ---
 
-### Login Audit Logs
+## User Management
 
-![Login Logs](assets/AdminControlCentre2.png)
+![User Management](AdminControlCentre1.png)
+
 
 ---
 
-### User Activity
+## Login Audit Logs
 
-![Activity](assets/AdminControlCentre3.png)
+![Login Audit](AdminControlCentre2.png)
+
+
+---
+
+## User Activity Monitoring
+
+![User Activity](AdminControlCentre3.png)
+
 
 ---
 
 # ✨ Features
 
-## 🤖 Machine Learning
 
-- XGBoost fraud detection model
-- Feature Engineering
-- Fraud probability prediction
-- Configurable decision thresholds
-- SHAP Explainability
-- Model metadata dashboard
+# 🤖 Machine Learning
 
----
-
-## 📡 Live Monitoring
-
-- Live transaction feed
+- XGBoost fraud classification
+- Feature engineering
 - Fraud probability scoring
 - Risk classification
-- Auto refresh
-- Search & filtering
-- Dashboard analytics
+- Configurable thresholds
+- SHAP explainability
+
 
 ---
 
-## ⚖️ Human Approval Workflow
+# 📡 Real-Time Monitoring
+
+- Live transaction feed
+- Fraud detection scoring
+- Risk level classification
+- Dashboard analytics
+- Filtering and search
+
+
+---
+
+# ⚖️ Human Approval Workflow
 
 - Manual transaction review
 - Approve / Block decisions
 - Analyst comments
 - Override tracking
-- Approval history
+- Audit history
+
 
 ---
 
-## 📋 Transaction Management
+# 📋 Transaction Management
 
-- Full audit trail
-- Search transactions
-- CSV Export
-- Risk filtering
-- Decision filtering
+- Transaction history
+- Search
+- Filtering
+- CSV export
+- Audit trail
+
 
 ---
 
-## 🔍 Fraud Prediction
-
-Predict fraud probability for a single transaction.
+# 🔍 Fraud Prediction
 
 Supports:
 
-- Amount
-- Time
-- PCA Features (V1–V28)
+- Transaction amount
+- Time features
+- PCA Features (V1-V28)
 
-Optional SHAP explanations.
+Provides:
 
----
-
-## 📁 Batch Analysis
-
-Upload CSV files and score thousands of transactions simultaneously.
-
-Results include:
-
-- Fraud Probability
+- Fraud probability
 - Decision
-- Risk Level
+- Risk level
+
 
 ---
 
-## 🧠 Model Dashboard
+# 📁 Batch Processing
 
-Displays:
+Upload transaction datasets.
 
-- Accuracy
-- Precision
-- Recall
-- F1 Score
-- ROC AUC
-- Thresholds
-- Feature Importance
+Returns:
+
+- Fraud probability
+- Decision
+- Risk category
+
 
 ---
 
-## 👥 User Administration
+# 👥 Administration
+
+Includes:
 
 - User management
 - Role management
-- Block/unblock users
-- Account approval
-- Login history
-- Activity monitoring
+- Account control
+- Login monitoring
+- Activity tracking
+
 
 ---
 
-## 🔒 Security
+# 🔒 Security
+
+Implemented:
 
 - JWT Authentication
-- Role-Based Access Control (RBAC)
+- Role Based Access Control
 - Password hashing
 - Login auditing
-- Protected admin accounts
+- Protected admin access
 - Secure REST API
+
 
 ---
 
 # 🏗️ System Architecture
 
-```text
-                ┌────────────────────────────┐
-                │       React Frontend       │
-                └──────────────┬─────────────┘
-                               │
-                          REST API
-                               │
-                ┌──────────────▼─────────────┐
-                │          FastAPI           │
-                └──────────────┬─────────────┘
-                               │
-       ┌───────────────────────┼────────────────────────┐
-       │                       │                        │
-       ▼                       ▼                        ▼
- Machine Learning       PostgreSQL Database     Authentication
-    XGBoost              Users & Transactions         JWT
+
 ```
+                React Frontend
+                      |
+                      |
+                  REST API
+                      |
+                      |
+                 FastAPI Backend
+                      |
+        --------------------------------
+        |              |               |
+        |              |               |
+    XGBoost        PostgreSQL       JWT Auth
+   ML Model        Database        Security
+
+```
+
 
 ---
 
 # 🧠 Machine Learning Pipeline
 
-```text
-Transaction Data
-        │
-        ▼
-Feature Engineering
-        │
-        ▼
-Train XGBoost Model
-        │
-        ▼
-Model Evaluation
-        │
-        ▼
-Save Model
-        │
-        ▼
-FastAPI Prediction Service
-        │
-        ▼
-React Dashboard
+
 ```
+Transaction Data
+
+        |
+        v
+
+Feature Engineering
+
+        |
+        v
+
+Train XGBoost Model
+
+        |
+        v
+
+Model Evaluation
+
+        |
+        v
+
+Save Model
+
+        |
+        v
+
+FastAPI Prediction API
+
+        |
+        v
+
+React Dashboard
+
+```
+
 
 ---
 
 # 🛠️ Technology Stack
+
 
 ## Frontend
 
@@ -328,17 +358,15 @@ React Dashboard
 - CSS
 - Chart.js
 
----
 
 ## Backend
 
-- FastAPI
 - Python
+- FastAPI
 - SQLAlchemy
 - PostgreSQL
-- JWT Authentication
+- JWT
 
----
 
 ## Machine Learning
 
@@ -348,7 +376,6 @@ React Dashboard
 - NumPy
 - SHAP
 
----
 
 ## DevOps
 
@@ -356,108 +383,119 @@ React Dashboard
 - Docker Compose
 - GitHub Actions
 
+
 ---
 
 # 📂 Project Structure
 
-```text
+
+```
 FraudGuard
+
 │
 ├── .github/
-│   └── workflows/
 │
 ├── data/
+│   └── simulation.csv
 │
 ├── fraud_detection/
-│   ├── api/
-│   ├── application/
-│   ├── core/
-│   ├── database/
-│   ├── infrastructure/
-│   ├── ml/
-│   ├── models/
-│   ├── schemas/
-│   ├── services/
-│   └── utils/
 │
 ├── frontend/
-│   ├── public/
-│   └── src/
 │
 ├── models_store/
 │
 ├── tests/
 │
+├── AdminControlCentre.png
+├── dashboard.png
+├── loginPage.png
+├── HumanApproval.png
+├── ApprovalAudit.png
+├── TransactionHistory.png
+├── SingleTransactionPredict.png
+├── BatchTransactionAnalysis.png
+├── ModelInformation.png
+│
 ├── Dockerfile
 ├── docker-compose.yml
 ├── train.py
-├── ingest_pipeline.py
 ├── main.py
 └── README.md
+
 ```
+
 
 ---
 
 # ⚙️ Installation
 
-Clone the repository
+
+Clone repository:
 
 ```bash
-git clone https://github.com/YOUR_GITHUB_USERNAME/FraudGuard.git
+git clone https://github.com/YOUR_USERNAME/FraudGuard.git
+
 cd FraudGuard
 ```
 
-Install backend dependencies
+
+Install backend:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Install frontend dependencies
+
+Install frontend:
 
 ```bash
 cd frontend
+
 npm install
 ```
 
+
 ---
 
-# ▶️ Running the Application
+# ▶️ Running Application
 
-### Start PostgreSQL
+
+Start database:
 
 ```bash
 docker compose up
 ```
 
----
 
-### Run the Backend
+Run backend:
 
 ```bash
 python main.py
 ```
 
-Backend runs on:
+
+Backend:
 
 ```
 http://localhost:8000
 ```
 
-Swagger Documentation:
+
+Swagger:
 
 ```
 http://localhost:8000/docs
 ```
 
----
 
-### Run the Frontend
+Run frontend:
 
 ```bash
 cd frontend
+
 npm run dev
 ```
+
 
 Frontend:
 
@@ -465,83 +503,107 @@ Frontend:
 http://localhost:5173
 ```
 
+
 ---
 
 # 🔌 API Features
 
-- User Authentication
+- Authentication
 - JWT Authorization
-- Predict Fraud
+- Fraud Prediction
 - Batch Prediction
 - Transaction Monitoring
 - Approval Queue
-- Transaction History
+- Audit Logs
 - User Management
-- Login Audit
 - Model Information
+
 
 ---
 
 # 📊 Machine Learning Performance
 
+
 | Metric | Score |
-|---------|-------|
-| Accuracy | **99.82%** |
-| Precision | **90.00%** |
-| Recall | **82.65%** |
-| F1 Score | **86.17%** |
-| ROC AUC | **98.16%** |
+|-|-|
+| Accuracy | 99.82% |
+| Precision | 90.00% |
+| Recall | 82.65% |
+| F1 Score | 86.17% |
+| ROC AUC | 98.16% |
+
 
 ---
 
 # 🔄 Fraud Detection Workflow
 
-```text
-Incoming Transaction
-          │
-          ▼
- Feature Engineering
-          │
-          ▼
- XGBoost Prediction
-          │
-          ▼
-Fraud Probability
-          │
-          ▼
- ┌────────┼─────────┐
- │        │         │
- ▼        ▼         ▼
-Approve  Review   Block
-           │
-           ▼
- Human Analyst Review
-           │
-           ▼
- Audit Log Updated
-           │
-           ▼
- Dashboard Refresh
+
 ```
+Incoming Transaction
+
+        |
+
+        v
+
+Feature Engineering
+
+        |
+
+        v
+
+XGBoost Prediction
+
+        |
+
+        v
+
+Fraud Probability
+
+        |
+
+        v
+
+
+Approve  ---> Complete
+
+Review   ---> Human Analyst
+
+Block    ---> Reject
+
+
+        |
+
+        v
+
+Audit Log Updated
+
+        |
+
+        v
+
+Dashboard Refresh
+
+```
+
 
 ---
 
 # 🌟 Future Improvements
 
-- Real-time WebSocket updates
-- Email fraud alerts
+- WebSocket real-time updates
+- Email alerts
 - SMS notifications
-- Multi-factor authentication (MFA)
+- MFA authentication
 - Explainable AI dashboard
-- Multi-tenant architecture
 - Kubernetes deployment
-- CI/CD deployment pipeline
-- Grafana monitoring
-- Prometheus metrics
+- Prometheus monitoring
+- Grafana dashboards
+
 
 ---
 
 # 👨‍💻 Author
+
 
 ## Marvin Vutshila
 
@@ -551,26 +613,32 @@ Machine Learning Engineer
 
 Full Stack Developer
 
-### GitHub
 
-https://github.com/YOUR_GITHUB_USERNAME
+GitHub:
 
-### LinkedIn
+```
+https://github.com/YOUR_USERNAME
+```
 
+
+LinkedIn:
+
+```
 https://linkedin.com/in/YOUR_LINKEDIN
+```
+
 
 ---
 
 # 📄 License
 
-This project is licensed under the MIT License.
+MIT License
+
 
 ---
 
-## ⭐ Support
+# ⭐ Support
 
-If you enjoyed this project or found it useful, consider giving it a **⭐ Star** on GitHub.
+If you like this project, consider giving it a ⭐ on GitHub.
 
-It helps others discover the project and motivates future development.
-
-Thank you for visiting **FraudGuard**!
+Thank you for visiting **FraudGuard** 🚀
