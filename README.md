@@ -1,158 +1,319 @@
 # 🛡️ FraudGuard – AI-Powered Fraud Detection Platform
 
-> **An end-to-end fraud detection platform that combines machine learning, real-time transaction monitoring, human review workflows, and administrative controls into a single web application.**
+![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi)
+![React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-336791?logo=postgresql)
+![XGBoost](https://img.shields.io/badge/XGBoost-Machine%20Learning-orange)
+![Docker](https://img.shields.io/badge/Docker-Container-blue?logo=docker)
+![GitHub Actions](https://img.shields.io/badge/GitHub-Actions-2088FF?logo=githubactions)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-FraudGuard is a production-style banking platform designed to detect fraudulent financial transactions using an **XGBoost machine learning model**. It combines automated fraud detection with human-in-the-loop decision making, allowing analysts to review suspicious transactions before final approval.
-
-The application consists of a **React frontend**, a **FastAPI backend**, **PostgreSQL database**, and a **Python machine learning pipeline** for model training and inference.
+> **An end-to-end AI-powered fraud detection platform that combines Machine Learning, FastAPI, React, PostgreSQL, and Human-in-the-Loop decision making to detect, monitor, investigate, and manage fraudulent financial transactions in real time.**
 
 ---
 
-# 📸 Screenshots
+# 📖 Table of Contents
 
-## Login
+- Overview
+- Features
+- Screenshots
+- System Architecture
+- Technology Stack
+- Machine Learning Pipeline
+- Project Structure
+- Installation
+- Running the Application
+- API Features
+- Model Performance
+- Workflow
+- Future Improvements
+- Author
+- License
+
+---
+
+# 🚀 Overview
+
+FraudGuard is a production-style banking fraud detection platform designed to demonstrate how machine learning can be integrated into modern financial systems.
+
+The platform automatically evaluates every incoming transaction using an **XGBoost classification model**. Based on the fraud probability, transactions are automatically:
+
+- ✅ Approved
+- ⚖️ Sent for Human Review
+- 🚫 Blocked
+
+Fraud analysts can manually investigate suspicious transactions before making the final decision.
+
+The application combines:
+
+- React Frontend
+- FastAPI REST API
+- PostgreSQL Database
+- XGBoost Machine Learning
+- Human Approval Workflow
+- Audit Logging
+- Authentication & Authorization
+- Administrative Dashboard
+
+---
+
+# 🌐 Live Demo
+
+### Frontend
+
+YOUR_DEPLOYMENT_URL
+
+### Backend API
+
+http://localhost:8000/docs
+
+---
+
+# 📸 Application Screenshots
+
+---
+
+## 🔐 Login
+
+Secure JWT authentication with role-based access.
 
 ![Login](assets/loginPage.png)
 
 ---
 
-## Live Monitoring Dashboard
+## 📡 Live Transaction Dashboard
+
+Monitor transactions in real time with fraud probability scoring.
 
 ![Dashboard](assets/dashboard.png)
 
 ---
 
-# 🚀 Key Features
+## ⚖️ Human Approval Queue
 
-### 🤖 Machine Learning
+Transactions requiring analyst review before approval.
 
-* XGBoost fraud detection model
-* Real-time fraud probability scoring
-* Feature engineering pipeline
-* SHAP explainability support
-* Configurable decision thresholds
-* Model performance dashboard
+![Approval Queue](assets/HumanApproval.png)
 
 ---
 
-### 📡 Live Transaction Monitoring
+## 📝 Approval Audit Log
 
-* Live transaction feed
-* Automatic refresh
-* Fraud probability scoring
-* Risk level classification
-* Decision tracking
-* Search and filtering
+Complete history of analyst decisions.
+
+![Approval Audit](assets/ApprovalAudit.png)
 
 ---
 
-### ⚖️ Human Approval Workflow
+## 📋 Transaction History
 
-Transactions classified as **REVIEW** are routed to analysts for manual investigation.
+Searchable audit trail with filtering and CSV export.
 
-Analysts can:
-
-* Approve transactions
-* Block transactions
-* Record review reasons
-* View previous decisions
-* Export audit history
+![Transaction History](assets/TransactionHistory.png)
 
 ---
 
-### 📋 Transaction History
+## 🔍 Single Transaction Prediction
 
-* Complete audit trail
-* Override history
-* Risk filtering
-* CSV export
-* Search by transaction ID
+Predict fraud probability for a single transaction.
+
+![Single Prediction](assets/SingleTransactionPredict.png)
 
 ---
 
-### 🔍 Single Prediction
+## 📁 Batch Transaction Analysis
 
-Predict fraud probability for an individual transaction using:
+Upload CSV files for large-scale fraud detection.
 
-* Amount
-* Time
-* PCA Features (V1–V28)
-
-Optional SHAP explanations help explain model predictions.
+![Batch Analysis](assets/BatchTransactionAnalysis.png)
 
 ---
 
-### 📁 Batch Analysis
+## 🧠 Model Information
 
-Upload CSV files for bulk fraud analysis.
+Model metrics, thresholds and feature importance.
 
-The platform scores every transaction and returns:
-
-* Fraud probability
-* Decision
-* Risk level
+![Model Information](assets/ModelInformation.png)
 
 ---
 
-### 🧠 Model Information
+# 🛡️ Administration Centre
 
-View detailed model metadata including:
+### Dashboard
 
-* Model version
-* Accuracy
-* Precision
-* Recall
-* F1 Score
-* ROC AUC
-* Decision thresholds
-* Top contributing features
+![Admin Dashboard](assets/AdminControlCentre.png)
 
 ---
 
-### 👤 Administration
+### User Management
 
-Secure administration panel with:
-
-* User management
-* Role management
-* Account approval
-* User blocking
-* Login audit logs
-* Security alerts
-* Activity monitoring
+![User Management](assets/AdminControlCentre1.png)
 
 ---
 
-### 🔒 Authentication & Security
+### Login Audit Logs
 
-* JWT Authentication
-* Role-Based Access Control (RBAC)
-* Protected administrator accounts
-* Login auditing
-* Failed login tracking
-* Secure API endpoints
+![Login Logs](assets/AdminControlCentre2.png)
+
+---
+
+### User Activity
+
+![Activity](assets/AdminControlCentre3.png)
+
+---
+
+# ✨ Features
+
+## 🤖 Machine Learning
+
+- XGBoost fraud detection model
+- Feature Engineering
+- Fraud probability prediction
+- Configurable decision thresholds
+- SHAP Explainability
+- Model metadata dashboard
+
+---
+
+## 📡 Live Monitoring
+
+- Live transaction feed
+- Fraud probability scoring
+- Risk classification
+- Auto refresh
+- Search & filtering
+- Dashboard analytics
+
+---
+
+## ⚖️ Human Approval Workflow
+
+- Manual transaction review
+- Approve / Block decisions
+- Analyst comments
+- Override tracking
+- Approval history
+
+---
+
+## 📋 Transaction Management
+
+- Full audit trail
+- Search transactions
+- CSV Export
+- Risk filtering
+- Decision filtering
+
+---
+
+## 🔍 Fraud Prediction
+
+Predict fraud probability for a single transaction.
+
+Supports:
+
+- Amount
+- Time
+- PCA Features (V1–V28)
+
+Optional SHAP explanations.
+
+---
+
+## 📁 Batch Analysis
+
+Upload CSV files and score thousands of transactions simultaneously.
+
+Results include:
+
+- Fraud Probability
+- Decision
+- Risk Level
+
+---
+
+## 🧠 Model Dashboard
+
+Displays:
+
+- Accuracy
+- Precision
+- Recall
+- F1 Score
+- ROC AUC
+- Thresholds
+- Feature Importance
+
+---
+
+## 👥 User Administration
+
+- User management
+- Role management
+- Block/unblock users
+- Account approval
+- Login history
+- Activity monitoring
+
+---
+
+## 🔒 Security
+
+- JWT Authentication
+- Role-Based Access Control (RBAC)
+- Password hashing
+- Login auditing
+- Protected admin accounts
+- Secure REST API
 
 ---
 
 # 🏗️ System Architecture
 
 ```text
-                    ┌──────────────────┐
-                    │   React Frontend │
-                    └─────────┬────────┘
-                              │
-                         REST API
-                              │
-                    ┌─────────▼─────────┐
-                    │      FastAPI      │
-                    └─────────┬─────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        │                     │                     │
-        ▼                     ▼                     ▼
- Machine Learning      PostgreSQL Database     Authentication
-     Engine            Transactions & Users         JWT
+                ┌────────────────────────────┐
+                │       React Frontend       │
+                └──────────────┬─────────────┘
+                               │
+                          REST API
+                               │
+                ┌──────────────▼─────────────┐
+                │          FastAPI           │
+                └──────────────┬─────────────┘
+                               │
+       ┌───────────────────────┼────────────────────────┐
+       │                       │                        │
+       ▼                       ▼                        ▼
+ Machine Learning       PostgreSQL Database     Authentication
+    XGBoost              Users & Transactions         JWT
+```
 
+---
+
+# 🧠 Machine Learning Pipeline
+
+```text
+Transaction Data
+        │
+        ▼
+Feature Engineering
+        │
+        ▼
+Train XGBoost Model
+        │
+        ▼
+Model Evaluation
+        │
+        ▼
+Save Model
+        │
+        ▼
+FastAPI Prediction Service
+        │
+        ▼
+React Dashboard
 ```
 
 ---
@@ -161,63 +322,77 @@ Secure administration panel with:
 
 ## Frontend
 
-* React
-* Vite
-* JavaScript
-* CSS
-* Chart.js
+- React
+- Vite
+- JavaScript
+- CSS
+- Chart.js
+
+---
 
 ## Backend
 
-* FastAPI
-* Python
-* SQLAlchemy
-* PostgreSQL
-* JWT Authentication
+- FastAPI
+- Python
+- SQLAlchemy
+- PostgreSQL
+- JWT Authentication
+
+---
 
 ## Machine Learning
 
-* XGBoost
-* Scikit-learn
-* SHAP
-* Pandas
-* NumPy
+- XGBoost
+- Scikit-learn
+- Pandas
+- NumPy
+- SHAP
+
+---
 
 ## DevOps
 
-* Docker
-* Docker Compose
-* GitHub Actions
+- Docker
+- Docker Compose
+- GitHub Actions
 
 ---
 
 # 📂 Project Structure
 
 ```text
-FraudGuard/
-
-├── frontend/                 # React Frontend
-├── fraud_detection/          # Backend Application
+FraudGuard
+│
+├── .github/
+│   └── workflows/
+│
+├── data/
+│
+├── fraud_detection/
 │   ├── api/
 │   ├── application/
 │   ├── core/
+│   ├── database/
 │   ├── infrastructure/
 │   ├── ml/
 │   ├── models/
 │   ├── schemas/
-│   └── services/
+│   ├── services/
+│   └── utils/
 │
-├── models_store/             # Trained ML Models
+├── frontend/
+│   ├── public/
+│   └── src/
+│
+├── models_store/
+│
 ├── tests/
-├── data/
-├── .github/
+│
+├── Dockerfile
+├── docker-compose.yml
 ├── train.py
 ├── ingest_pipeline.py
-├── evaluate_model.py
-├── create_admin.py
-├── docker-compose.yml
-├── Dockerfile
-├── requirements.txt
+├── main.py
 └── README.md
 ```
 
@@ -228,11 +403,11 @@ FraudGuard/
 Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/FraudGuard.git
+git clone https://github.com/YOUR_GITHUB_USERNAME/FraudGuard.git
 cd FraudGuard
 ```
 
-Install Python dependencies
+Install backend dependencies
 
 ```bash
 pip install -r requirements.txt
@@ -245,71 +420,144 @@ cd frontend
 npm install
 ```
 
-Run the backend
+---
+
+# ▶️ Running the Application
+
+### Start PostgreSQL
+
+```bash
+docker compose up
+```
+
+---
+
+### Run the Backend
 
 ```bash
 python main.py
 ```
 
-Run the frontend
+Backend runs on:
+
+```
+http://localhost:8000
+```
+
+Swagger Documentation:
+
+```
+http://localhost:8000/docs
+```
+
+---
+
+### Run the Frontend
 
 ```bash
+cd frontend
 npm run dev
 ```
+
+Frontend:
+
+```
+http://localhost:5173
+```
+
+---
+
+# 🔌 API Features
+
+- User Authentication
+- JWT Authorization
+- Predict Fraud
+- Batch Prediction
+- Transaction Monitoring
+- Approval Queue
+- Transaction History
+- User Management
+- Login Audit
+- Model Information
 
 ---
 
 # 📊 Machine Learning Performance
 
-| Metric    |      Score |
-| --------- | ---------: |
-| Accuracy  | **99.82%** |
+| Metric | Score |
+|---------|-------|
+| Accuracy | **99.82%** |
 | Precision | **90.00%** |
-| Recall    | **82.65%** |
-| F1 Score  | **86.17%** |
-| ROC AUC   | **98.16%** |
+| Recall | **82.65%** |
+| F1 Score | **86.17%** |
+| ROC AUC | **98.16%** |
 
 ---
 
-# 🔄 Workflow
+# 🔄 Fraud Detection Workflow
 
-1. Incoming transaction received
-2. Feature engineering applied
-3. XGBoost model predicts fraud probability
-4. Decision assigned:
-
-   * **Approve**
-   * **Review**
-   * **Block**
-5. Analysts review flagged transactions
-6. Audit log updated
-7. Dashboard refreshed in real time
+```text
+Incoming Transaction
+          │
+          ▼
+ Feature Engineering
+          │
+          ▼
+ XGBoost Prediction
+          │
+          ▼
+Fraud Probability
+          │
+          ▼
+ ┌────────┼─────────┐
+ │        │         │
+ ▼        ▼         ▼
+Approve  Review   Block
+           │
+           ▼
+ Human Analyst Review
+           │
+           ▼
+ Audit Log Updated
+           │
+           ▼
+ Dashboard Refresh
+```
 
 ---
 
-# 🌟 Future Enhancements
+# 🌟 Future Improvements
 
-* Real-time WebSocket streaming
-* Email and SMS fraud alerts
-* Multi-factor authentication (MFA)
-* Explainable AI dashboard
-* Multi-tenant support
-* Kubernetes deployment
-* CI/CD pipeline enhancements
+- Real-time WebSocket updates
+- Email fraud alerts
+- SMS notifications
+- Multi-factor authentication (MFA)
+- Explainable AI dashboard
+- Multi-tenant architecture
+- Kubernetes deployment
+- CI/CD deployment pipeline
+- Grafana monitoring
+- Prometheus metrics
 
 ---
 
 # 👨‍💻 Author
 
-**Marvin Vutshila**
+## Marvin Vutshila
 
 Computer Science Student
 
-Machine Learning & Software Engineering Enthusiast
+Machine Learning Engineer
 
-GitHub: https://github.com/YOUR_USERNAME
+Full Stack Developer
 
-LinkedIn: https://linkedin.com/in/YOUR_PROFILE
+### GitHub
+
+https://github.com/YOUR_GITHUB_USERNAME
+
+### LinkedIn
+
+https://linkedin.com/in/YOUR_LINKEDIN
 
 ---
 
@@ -319,4 +567,10 @@ This project is licensed under the MIT License.
 
 ---
 
-⭐ If you found this project useful, please consider giving it a **Star** on GitHub.
+## ⭐ Support
+
+If you enjoyed this project or found it useful, consider giving it a **⭐ Star** on GitHub.
+
+It helps others discover the project and motivates future development.
+
+Thank you for visiting **FraudGuard**!
