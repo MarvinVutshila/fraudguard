@@ -18,7 +18,7 @@
 - Overview
 - Features
 - Screenshots
-- Architecture
+- System Architecture
 - Technology Stack
 - Machine Learning Pipeline
 - Project Structure
@@ -31,17 +31,19 @@
 - Author
 - License
 
+
 ---
 
 # 🚀 Overview
 
-FraudGuard is a production-style banking fraud detection platform designed to demonstrate how artificial intelligence can be integrated into modern financial systems.
+FraudGuard is a production-style banking fraud detection platform designed to demonstrate how Artificial Intelligence can be integrated into modern financial systems.
 
-The system evaluates transactions using an **XGBoost Machine Learning model** and assigns decisions:
+The system evaluates transactions using an **XGBoost Machine Learning model** and assigns:
 
 - ✅ Approved
 - ⚖️ Human Review
 - 🚫 Blocked
+
 
 The platform includes:
 
@@ -53,6 +55,7 @@ The platform includes:
 - Audit Logging
 - JWT Authentication
 - Admin Management Centre
+
 
 ---
 
@@ -70,6 +73,7 @@ Backend API:
 http://localhost:8000/docs
 ```
 
+
 ---
 
 # 📸 Application Screenshots
@@ -79,7 +83,7 @@ http://localhost:8000/docs
 
 Secure JWT authentication with role-based access.
 
-![Login](loginPage.png)
+<img src="./loginPage.png" width="900">
 
 
 ---
@@ -88,7 +92,7 @@ Secure JWT authentication with role-based access.
 
 Real-time fraud monitoring dashboard.
 
-![Dashboard](dashboard.png)
+<img src="./dashboard.png" width="900">
 
 
 ---
@@ -97,7 +101,7 @@ Real-time fraud monitoring dashboard.
 
 Analysts review suspicious transactions.
 
-![Human Approval](HumanApproval.png)
+<img src="./HumanApproval.png" width="900">
 
 
 ---
@@ -106,7 +110,7 @@ Analysts review suspicious transactions.
 
 Complete history of analyst decisions.
 
-![Approval Audit](ApprovalAudit.png)
+<img src="./ApprovalAudit.png" width="900">
 
 
 ---
@@ -115,7 +119,7 @@ Complete history of analyst decisions.
 
 Search, filter and export transaction records.
 
-![Transaction History](TransactionHistory.png)
+<img src="./TransactionHistory.png" width="900">
 
 
 ---
@@ -124,7 +128,7 @@ Search, filter and export transaction records.
 
 Predict fraud probability for individual transactions.
 
-![Single Prediction](SingleTransactionPredict.png)
+<img src="./SingleTransactionPredict.png" width="900">
 
 
 ---
@@ -133,16 +137,16 @@ Predict fraud probability for individual transactions.
 
 Upload CSV files and analyse thousands of transactions.
 
-![Batch Analysis](BatchTransactionAnalysis.png)
+<img src="./BatchTransactionAnalysis.png" width="900">
 
 
 ---
 
 ## 🧠 Model Information
 
-View machine learning performance and feature importance.
+Machine learning metrics and feature importance.
 
-![Model Information](ModelInformation.png)
+<img src="./ModelInformation.png" width="900">
 
 
 ---
@@ -152,28 +156,28 @@ View machine learning performance and feature importance.
 
 ## Admin Dashboard
 
-![Admin Dashboard](AdminControlCentre.png)
+<img src="./AdminControlCentre.png" width="900">
 
 
 ---
 
 ## User Management
 
-![User Management](AdminControlCentre1.png)
+<img src="./AdminControlCentre1.png" width="900">
 
 
 ---
 
 ## Login Audit Logs
 
-![Login Audit](AdminControlCentre2.png)
+<img src="./AdminControlCentre2.png" width="900">
 
 
 ---
 
 ## User Activity Monitoring
 
-![User Activity](AdminControlCentre3.png)
+<img src="./AdminControlCentre3.png" width="900">
 
 
 ---
@@ -181,7 +185,7 @@ View machine learning performance and feature importance.
 # ✨ Features
 
 
-# 🤖 Machine Learning
+## 🤖 Machine Learning
 
 - XGBoost fraud classification
 - Feature engineering
@@ -193,7 +197,7 @@ View machine learning performance and feature importance.
 
 ---
 
-# 📡 Real-Time Monitoring
+## 📡 Real-Time Monitoring
 
 - Live transaction feed
 - Fraud detection scoring
@@ -204,18 +208,18 @@ View machine learning performance and feature importance.
 
 ---
 
-# ⚖️ Human Approval Workflow
+## ⚖️ Human Approval Workflow
 
 - Manual transaction review
 - Approve / Block decisions
 - Analyst comments
 - Override tracking
-- Audit history
+- Approval history
 
 
 ---
 
-# 📋 Transaction Management
+## 📋 Transaction Management
 
 - Transaction history
 - Search
@@ -226,13 +230,14 @@ View machine learning performance and feature importance.
 
 ---
 
-# 🔍 Fraud Prediction
+## 🔍 Fraud Prediction
 
 Supports:
 
 - Transaction amount
 - Time features
-- PCA Features (V1-V28)
+- PCA Features V1-V28
+
 
 Provides:
 
@@ -243,7 +248,7 @@ Provides:
 
 ---
 
-# 📁 Batch Processing
+## 📁 Batch Processing
 
 Upload transaction datasets.
 
@@ -256,7 +261,7 @@ Returns:
 
 ---
 
-# 👥 Administration
+## 👥 Administration
 
 Includes:
 
@@ -407,14 +412,17 @@ FraudGuard
 ├── tests/
 │
 ├── AdminControlCentre.png
+├── AdminControlCentre1.png
+├── AdminControlCentre2.png
+├── AdminControlCentre3.png
+├── ApprovalAudit.png
+├── BatchTransactionAnalysis.png
+├── HumanApproval.png
+├── ModelInformation.png
+├── SingleTransactionPredict.png
+├── TransactionHistory.png
 ├── dashboard.png
 ├── loginPage.png
-├── HumanApproval.png
-├── ApprovalAudit.png
-├── TransactionHistory.png
-├── SingleTransactionPredict.png
-├── BatchTransactionAnalysis.png
-├── ModelInformation.png
 │
 ├── Dockerfile
 ├── docker-compose.yml
