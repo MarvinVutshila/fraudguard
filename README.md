@@ -42,7 +42,7 @@ The platform provides:
 JWT authentication with secure user access.
 
 
-<img src="./loginPage.png" width="100%">
+<img src="./data/loginPage.png" width="100%">
 
 
 ---
@@ -52,7 +52,7 @@ JWT authentication with secure user access.
 Real-time transaction monitoring and fraud analytics.
 
 
-<img src="./dashboard.png" width="100%">
+<img src="./data/dashboard.png" width="100%">
 
 
 ---
@@ -62,7 +62,7 @@ Real-time transaction monitoring and fraud analytics.
 Analysts review suspicious transactions.
 
 
-<img src="./HumanApproval.png" width="100%">
+<img src="./data/HumanApproval.png" width="100%">
 
 
 ---
@@ -72,7 +72,7 @@ Analysts review suspicious transactions.
 Complete history of approval decisions.
 
 
-<img src="./ApprovalAudit.png" width="100%">
+<img src="./data/ApprovalAudit.png" width="100%">
 
 
 ---
@@ -82,7 +82,7 @@ Complete history of approval decisions.
 Search and filter all processed transactions.
 
 
-<img src="./TransactionHistory.png" width="100%">
+<img src="./data/TransactionHistory.png" width="100%">
 
 
 ---
@@ -92,7 +92,7 @@ Search and filter all processed transactions.
 Predict fraud probability for a transaction.
 
 
-<img src="./SingleTransactionPredict.png" width="100%">
+<img src="./data/SingleTransactionPredict.png" width="100%">
 
 
 ---
@@ -102,7 +102,7 @@ Predict fraud probability for a transaction.
 Upload CSV files and analyse multiple transactions.
 
 
-<img src="./BatchTransactionAnalysis.png" width="100%">
+<img src="./data/BatchTransactionAnalysis.png" width="100%">
 
 
 ---
@@ -113,7 +113,7 @@ Upload CSV files and analyse multiple transactions.
 View model metrics and feature importance.
 
 
-<img src="./ModelInformation.png" width="100%">
+<img src="./data/ModelInformation.png" width="100%">
 
 
 
@@ -125,28 +125,28 @@ View model metrics and feature importance.
 ## Admin Dashboard
 
 
-<img src="./AdminControlCentre.png" width="100%">
+<img src="./data/AdminControlCentre.png" width="100%">
 
 
 
 ## User Management
 
 
-<img src="./AdminControlCentre1.png" width="100%">
+<img src="./data/AdminControlCentre1.png" width="100%">
 
 
 
 ## Login Audit Logs
 
 
-<img src="./AdminControlCentre2.png" width="100%">
+<img src="./data/AdminControlCentre2.png" width="100%">
 
 
 
 ## User Activity Monitoring
 
 
-<img src="./AdminControlCentre3.png" width="100%">
+<img src="./data/AdminControlCentre3.png" width="100%">
 
 
 
@@ -339,23 +339,31 @@ FraudGuard
 ├── tests/
 
 │
-├── loginPage.png
+├── data/
 
-├── dashboard.png
+│   ├── loginPage.png
 
-├── HumanApproval.png
+│   ├── dashboard.png
 
-├── ApprovalAudit.png
+│   ├── HumanApproval.png
 
-├── TransactionHistory.png
+│   ├── ApprovalAudit.png
 
-├── SingleTransactionPredict.png
+│   ├── TransactionHistory.png
 
-├── BatchTransactionAnalysis.png
+│   ├── SingleTransactionPredict.png
 
-├── ModelInformation.png
+│   ├── BatchTransactionAnalysis.png
 
-├── AdminControlCentre.png
+│   ├── ModelInformation.png
+
+│   ├── AdminControlCentre.png
+
+│   ├── AdminControlCentre1.png
+
+│   ├── AdminControlCentre2.png
+
+│   └── AdminControlCentre3.png
 
 │
 ├── main.py
