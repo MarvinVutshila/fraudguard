@@ -1,269 +1,322 @@
-# 🛡️ Fraud Detection System – Production ML + API + Dashboard
+# 🛡️ FraudGuard – AI-Powered Fraud Detection Platform
 
-An end-to-end fraud detection system built using **XGBoost**, **FastAPI**, **PostgreSQL**, and a modern **HTML/JavaScript dashboard**.
+> **An end-to-end fraud detection platform that combines machine learning, real-time transaction monitoring, human review workflows, and administrative controls into a single web application.**
 
-The system predicts fraudulent transactions, provides explainable AI insights using SHAP, stores transaction history in PostgreSQL, and is fully deployable using free cloud services.
+FraudGuard is a production-style banking platform designed to detect fraudulent financial transactions using an **XGBoost machine learning model**. It combines automated fraud detection with human-in-the-loop decision making, allowing analysts to review suspicious transactions before final approval.
+
+The application consists of a **React frontend**, a **FastAPI backend**, **PostgreSQL database**, and a **Python machine learning pipeline** for model training and inference.
 
 ---
 
-## 🚀 Features
+# 📸 Screenshots
+
+## Login
+
+![Login](assets/loginPage.png)
+
+---
+
+## Live Monitoring Dashboard
+
+![Dashboard](assets/dashboard.png)
+
+---
+
+# 🚀 Key Features
+
+### 🤖 Machine Learning
 
 * XGBoost fraud detection model
-* FastAPI REST API
-* PostgreSQL transaction storage
-* SHAP explainability
-* Interactive HTML dashboard
-* Batch CSV processing
-* Risk scoring engine
-* Transaction history tracking
-* Docker support
-* Cloud deployment ready
-* Modular production architecture
+* Real-time fraud probability scoring
+* Feature engineering pipeline
+* SHAP explainability support
+* Configurable decision thresholds
+* Model performance dashboard
 
 ---
 
-## 🏗️ System Architecture
+### 📡 Live Transaction Monitoring
 
-```mermaid
-graph LR
-    User["User / CSV Upload"] --> Dashboard["HTML Dashboard"]
-
-    Dashboard --> API["FastAPI Backend"]
-
-    API --> Model["XGBoost Model"]
-
-    Model --> SHAP["SHAP Explanations"]
-
-    API --> DB[("PostgreSQL Database")]
-
-    DB --> Dashboard
-```
+* Live transaction feed
+* Automatic refresh
+* Fraud probability scoring
+* Risk level classification
+* Decision tracking
+* Search and filtering
 
 ---
 
-## 📁 Project Structure
+### ⚖️ Human Approval Workflow
+
+Transactions classified as **REVIEW** are routed to analysts for manual investigation.
+
+Analysts can:
+
+* Approve transactions
+* Block transactions
+* Record review reasons
+* View previous decisions
+* Export audit history
+
+---
+
+### 📋 Transaction History
+
+* Complete audit trail
+* Override history
+* Risk filtering
+* CSV export
+* Search by transaction ID
+
+---
+
+### 🔍 Single Prediction
+
+Predict fraud probability for an individual transaction using:
+
+* Amount
+* Time
+* PCA Features (V1–V28)
+
+Optional SHAP explanations help explain model predictions.
+
+---
+
+### 📁 Batch Analysis
+
+Upload CSV files for bulk fraud analysis.
+
+The platform scores every transaction and returns:
+
+* Fraud probability
+* Decision
+* Risk level
+
+---
+
+### 🧠 Model Information
+
+View detailed model metadata including:
+
+* Model version
+* Accuracy
+* Precision
+* Recall
+* F1 Score
+* ROC AUC
+* Decision thresholds
+* Top contributing features
+
+---
+
+### 👤 Administration
+
+Secure administration panel with:
+
+* User management
+* Role management
+* Account approval
+* User blocking
+* Login audit logs
+* Security alerts
+* Activity monitoring
+
+---
+
+### 🔒 Authentication & Security
+
+* JWT Authentication
+* Role-Based Access Control (RBAC)
+* Protected administrator accounts
+* Login auditing
+* Failed login tracking
+* Secure API endpoints
+
+---
+
+# 🏗️ System Architecture
 
 ```text
-fraud_detection/
+                    ┌──────────────────┐
+                    │   React Frontend │
+                    └─────────┬────────┘
+                              │
+                         REST API
+                              │
+                    ┌─────────▼─────────┐
+                    │      FastAPI      │
+                    └─────────┬─────────┘
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+        ▼                     ▼                     ▼
+ Machine Learning      PostgreSQL Database     Authentication
+     Engine            Transactions & Users         JWT
+
+```
+
+---
+
+# 🛠️ Technology Stack
+
+## Frontend
+
+* React
+* Vite
+* JavaScript
+* CSS
+* Chart.js
+
+## Backend
+
+* FastAPI
+* Python
+* SQLAlchemy
+* PostgreSQL
+* JWT Authentication
+
+## Machine Learning
+
+* XGBoost
+* Scikit-learn
+* SHAP
+* Pandas
+* NumPy
+
+## DevOps
+
+* Docker
+* Docker Compose
+* GitHub Actions
+
+---
+
+# 📂 Project Structure
+
+```text
+FraudGuard/
+
+├── frontend/                 # React Frontend
+├── fraud_detection/          # Backend Application
+│   ├── api/
+│   ├── application/
+│   ├── core/
+│   ├── infrastructure/
+│   ├── ml/
+│   ├── models/
+│   ├── schemas/
+│   └── services/
 │
-├── .env.example
-├── .gitignore
-├── Dockerfile
-├── docker-compose.yml
-├── requirements.txt
-│
-├── main.py
-├── train.py
-├── evaluate_model.py
-├── live_stream_review_focused.py
-│
+├── models_store/             # Trained ML Models
 ├── tests/
-│   ├── __init__.py
-│   └── test_connection.py
-│
-├── frontend/
-│   ├── index.html
-│   └── Marvin.jpg
-│
-├── models_store/
-│   ├── best_model.pkl
-│   ├── scaler.pkl
-│   ├── amount_bins.pkl
-│   ├── feature_names.pkl
-│   └── optimal_threshold.pkl
-│
-└── fraud_detection/
-    │
-    ├── api/
-    │   ├── dependencies.py
-    │   ├── auth.py
-    │   └── routes/
-    │       ├── health.py
-    │       ├── model.py
-    │       ├── predictions.py
-    │       ├── transactions.py
-    │       ├── history.py
-    │       ├── ingest.py
-    │       └── auth.py
-    │
-    ├── application/
-    │   └── services/
-    │       ├── prediction_service.py
-    │       └── decision_service.py
-    │
-    ├── infrastructure/
-    │   ├── database/
-    │   └── repositories/
-    │
-    ├── ml/
-    │   ├── feature_engineering.py
-    │   └── inference/
-    │       ├── model_loader.py
-    │       └── explainability.py
-    │
-    ├── schemas/
-    ├── core/
-    └── utils/
+├── data/
+├── .github/
+├── train.py
+├── ingest_pipeline.py
+├── evaluate_model.py
+├── create_admin.py
+├── docker-compose.yml
+├── Dockerfile
+├── requirements.txt
+└── README.md
 ```
 
 ---
 
-## 🧠 Model Performance
+# ⚙️ Installation
 
-| Metric              | Value  |
-| ------------------- | ------ |
-| ROC-AUC             | 0.9816 |
-| F1 Score            | 0.8677 |
-| Recall              | 85.7%  |
-| False Positive Rate | 0.07%  |
-
-**Result:** Ready for low-false-alarm fraud detection.
-
----
-
-## 🛠 Technology Stack
-
-| Layer            | Technology            |
-| ---------------- | --------------------- |
-| Machine Learning | XGBoost               |
-| API              | FastAPI               |
-| Database         | PostgreSQL            |
-| Explainability   | SHAP                  |
-| Frontend         | HTML, CSS, JavaScript |
-| Deployment       | Render                |
-| Database Hosting | Neon                  |
-| Frontend Hosting | Netlify / Vercel      |
-| Containerization | Docker                |
-
----
-
-## ☁️ Deployment Architecture
-
-| Component | Platform         |
-| --------- | ---------------- |
-| API       | Render           |
-| Database  | Neon PostgreSQL  |
-| Dashboard | Netlify / Vercel |
-
----
-
-## 🔄 Prediction Workflow
-
-1. User uploads a CSV file.
-2. Dashboard sends data to FastAPI.
-3. Model generates fraud probability.
-4. Risk engine determines:
-
-   * APPROVE
-   * REVIEW
-   * BLOCK
-5. SHAP generates explanations.
-6. Results are stored in PostgreSQL.
-7. Dashboard displays prediction history.
-
----
-
-## 🧪 Local Installation
-
-### Clone Repository
+Clone the repository
 
 ```bash
-git clone https://github.com/MarvinVutshila/fraud-detection.git
-cd fraud-detection
+git clone https://github.com/YOUR_USERNAME/FraudGuard.git
+cd FraudGuard
 ```
 
-### Create Virtual Environment
-
-#### Windows
-
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
-
-#### Linux / macOS
-
-```bash
-python -m venv venv
-source venv/bin/activate
-```
-
-### Install Dependencies
+Install Python dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Configure Environment Variables
+Install frontend dependencies
 
-Create a `.env` file:
-
-```env
-DATABASE_URL=your_postgresql_connection_string
-
-JWT_SECRET_KEY=your_secret_key
-
-API_KEY=your_api_key
-
-STREAM_PASSWORD=optional_password
+```bash
+cd frontend
+npm install
 ```
 
-### Run the API
+Run the backend
 
 ```bash
 python main.py
 ```
 
-Open:
+Run the frontend
 
-```text
-http://localhost:8000
-```
-
-Swagger Documentation:
-
-```text
-http://localhost:8000/docs
+```bash
+npm run dev
 ```
 
 ---
 
-## ⚠️ Production Notes
+# 📊 Machine Learning Performance
 
-* Render free tier sleeps after inactivity.
-* Neon PostgreSQL is recommended for persistence.
-* The current model uses the Kaggle Credit Card Fraud dataset.
-* Features V1–V28 are PCA-transformed variables from the original dataset.
-* Real banking systems would require domain-specific transaction features.
+| Metric    |      Score |
+| --------- | ---------: |
+| Accuracy  | **99.82%** |
+| Precision | **90.00%** |
+| Recall    | **82.65%** |
+| F1 Score  | **86.17%** |
+| ROC AUC   | **98.16%** |
 
 ---
 
-## 🔮 Future Improvements
+# 🔄 Workflow
 
-* JWT authentication
-* Role-based access control
-* CI/CD pipeline
-* Model versioning
-* Drift detection
-* Monitoring and alerting
-* Automated retraining
-* Audit logging
+1. Incoming transaction received
+2. Feature engineering applied
+3. XGBoost model predicts fraud probability
+4. Decision assigned:
+
+   * **Approve**
+   * **Review**
+   * **Block**
+5. Analysts review flagged transactions
+6. Audit log updated
+7. Dashboard refreshed in real time
+
+---
+
+# 🌟 Future Enhancements
+
+* Real-time WebSocket streaming
+* Email and SMS fraud alerts
+* Multi-factor authentication (MFA)
+* Explainable AI dashboard
+* Multi-tenant support
 * Kubernetes deployment
+* CI/CD pipeline enhancements
 
 ---
 
-## 📜 License
+# 👨‍💻 Author
 
-Educational and research use only.
+**Marvin Vutshila**
 
-This project is not intended for real financial decision-making without additional validation, compliance reviews, and security controls.
+Computer Science Student
+
+Machine Learning & Software Engineering Enthusiast
+
+GitHub: https://github.com/YOUR_USERNAME
+
+LinkedIn: https://linkedin.com/in/YOUR_PROFILE
 
 ---
 
-## 👨‍💻 Author
+# 📄 License
 
-### Marvin
+This project is licensed under the MIT License.
 
-Data Science & AI Engineer
+---
 
-Production-style Machine Learning, MLOps, and Fraud Detection Project.
+⭐ If you found this project useful, please consider giving it a **Star** on GitHub.
