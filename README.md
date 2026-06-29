@@ -10,6 +10,22 @@
 
 > An end-to-end AI fraud detection platform built with Machine Learning, FastAPI, React, PostgreSQL and Human Approval workflows.
 
+
+---
+
+# 🌐 Live Demo
+
+
+🚀 Application:
+
+https://fraudguard-434w.onrender.com/login
+
+
+📄 Project Report:
+
+https://marvinvutshila.github.io/fraudguard-reports/
+
+
 ---
 
 # 🚀 Overview
