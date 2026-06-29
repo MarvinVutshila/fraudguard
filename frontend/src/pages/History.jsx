@@ -12,9 +12,38 @@ export default function History() {
   const [page, setPage] = useState(1);
   const pageSize = 25;
 
+  // Badge counts – global (from reports.json) or local (from filtered data)
+  const [badges, setBadges] = useState({
+    blocked: 0,
+    review: 0,
+    overridden: 0,
+  });
+
+  // Fetch global summary from the same reports.json the dashboard uses
+  const fetchGlobalSummary = async () => {
+    try {
+      const res = await fetch(
+        'https://marvinvutshila.github.io/fraudguard-reports/data/reports.json'
+      );
+      const data = await res.json();
+      const weekly = data.weekly || {};
+      const overrides = data.summary?.override_activity || [];
+      const totalOverridden = overrides.reduce(
+        (sum, a) => sum + (a.override_count || 0),
+        0
+      );
+      setBadges({
+        blocked: weekly.blocked || 0,
+        review: weekly.reviewed || 0,
+        overridden: totalOverridden,
+      });
+    } catch (err) {
+      console.warn('Could not fetch global summary, falling back to local counts.');
+    }
+  };
+
   const fetchHistory = async () => {
     try {
-      // Pass the current filters to the server
       const params = new URLSearchParams();
       params.set('limit', '1500');
       if (search) params.set('search', search);
@@ -27,7 +56,7 @@ export default function History() {
 
       setTransactions(data);
       setTotalCount(total);
-      setFiltered(data);   // already filtered by the server
+      setFiltered(data);
     } catch (err) {
       console.error('Failed to fetch history:', err);
     } finally {
@@ -35,7 +64,23 @@ export default function History() {
     }
   };
 
-  // Re-fetch when filters change
+  // Decide which badge source to use:
+  //   - No filter active → global summary (reports.json)
+  //   - Any filter active → local counts from the API result
+  useEffect(() => {
+    if (!search && !decisionFilter && !riskFilter) {
+      fetchGlobalSummary();
+    } else {
+      // Local counts from the currently filtered data
+      setBadges({
+        blocked: filtered.filter(t => t.decision === 'BLOCK').length,
+        review: filtered.filter(t => t.decision === 'REVIEW').length,
+        overridden: filtered.filter(t => t.overridden).length,
+      });
+    }
+  }, [search, decisionFilter, riskFilter, filtered]);
+
+  // Re‑fetch history when filters change
   useEffect(() => {
     fetchHistory();
   }, [search, decisionFilter, riskFilter]);
@@ -134,17 +179,12 @@ export default function History() {
           </div>
         </div>
 
+        {/* Badges – using correct source (global when unfiltered, local when filtered) */}
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
           <span className="risk-badge low">Total: {totalCount}</span>
-          <span className="risk-badge high">
-            Blocked: {filtered.filter(t => t.decision === 'BLOCK').length}
-          </span>
-          <span className="risk-badge medium">
-            Review: {filtered.filter(t => t.decision === 'REVIEW').length}
-          </span>
-          <span className="risk-badge critical">
-            Overridden: {filtered.filter(t => t.overridden).length}
-          </span>
+          <span className="risk-badge high">Blocked: {badges.blocked}</span>
+          <span className="risk-badge medium">Review: {badges.review}</span>
+          <span className="risk-badge critical">Overridden: {badges.overridden}</span>
         </div>
 
         <div className="table-scroll">
