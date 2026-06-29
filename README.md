@@ -1,652 +1,197 @@
-# 🛡️ FraudGuard – AI-Powered Fraud Detection Platform
+# 🛡️ FraudGuard – AI‑Powered Transaction Monitoring
 
-![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?logo=fastapi)
-![React](https://img.shields.io/badge/React-Frontend-61DAFB?logo=react)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Database-336791?logo=postgresql)
-![XGBoost](https://img.shields.io/badge/XGBoost-Machine%20Learning-orange)
-![Docker](https://img.shields.io/badge/Docker-Container-blue?logo=docker)
-![GitHub Actions](https://img.shields.io/badge/GitHub-Actions-2088FF?logo=githubactions)
-![License](https://img.shields.io/badge/License-MIT-green)
-
-> **An end-to-end AI-powered fraud detection platform combining Machine Learning, FastAPI, React, PostgreSQL, and Human-in-the-Loop decision making to detect, monitor, investigate, and manage fraudulent financial transactions in real time.**
+An end‑to‑end fraud detection platform with real‑time predictions, risk scoring, human override workflows, admin controls, and a beautiful React dashboard.  
+Built with FastAPI (Python) + React (Vite) + PostgreSQL + ML (XGBoost/SHAP).
 
 ---
 
-# 📖 Table of Contents
+![Dashboard](dashboard.png)
 
-- Overview
-- Features
-- Screenshots
-- System Architecture
-- Technology Stack
-- Machine Learning Pipeline
-- Project Structure
-- Installation
-- Running Application
-- API Features
-- Model Performance
-- Workflow
-- Future Improvements
-- Author
-- License
+## 📸 Screenshots
 
+| | | |
+|:-------------------------:|:-------------------------:|:-------------------------:|
+| ![Admin Control Centre](AdminControlCentre.png) | ![Admin Control Centre 2](AdminControlCentre1.png) | ![Admin Control Centre 3](AdminControlCentre2.png) |
+| **Admin Panel** | **User Management** | **System Settings** |
+| ![Approval Audit](ApprovalAudit.png) | ![Batch Transaction Analysis](BatchTransactionAnalysis.png) | ![Human Approval](HumanApproval.png) |
+| **Approval Audit Trail** | **Batch Analysis** | **Manual Review Queue** |
+| ![Model Information](ModelInformation.png) | ![Single Transaction Predict](SingleTransactionPredict.png) | ![Transaction History](TransactionHistory.png) |
+| **Model Performance** | **Single Prediction** | **Full Transaction History** |
+| ![Login Page](loginPage.png) | ![Dashboard](dashboard.png) | |
+| **Secure Login** | **Main Dashboard** | |
 
 ---
 
-# 🚀 Overview
+## 📑 Table of Contents
 
-FraudGuard is a production-style banking fraud detection platform designed to demonstrate how Artificial Intelligence can be integrated into modern financial systems.
-
-The system evaluates transactions using an **XGBoost Machine Learning model** and assigns:
-
-- ✅ Approved
-- ⚖️ Human Review
-- 🚫 Blocked
-
-
-The platform includes:
-
-- React Dashboard
-- FastAPI Backend
-- PostgreSQL Database
-- XGBoost Fraud Model
-- Human Approval Workflow
-- Audit Logging
-- JWT Authentication
-- Admin Management Centre
-
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Project Structure](#-project-structure)
+- [Getting Started](#-getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Local Development](#local-development)
+  - [Docker](#docker)
+- [Environment Variables](#-environment-variables)
+- [API Endpoints](#-api-endpoints)
+- [Machine Learning Pipeline](#-machine-learning-pipeline)
+- [Deployment](#-deployment)
+- [Contributing](#-contributing)
+- [License](#-license)
 
 ---
 
-# 🌐 Live Demo
+## ✨ Features
 
-Frontend:
-
-```
-YOUR_DEPLOYMENT_URL
-```
-
-Backend API:
-
-```
-http://localhost:8000/docs
-```
-
+- **Real‑time Fraud Detection** – Predict risk (LOW / MEDIUM / HIGH / CRITICAL) instantly with XGBoost model.
+- **Human Override Workflow** – Analysts can approve / block / review transactions, with full audit trail.
+- **Batch Analysis** – Upload CSV files to score hundreds of transactions at once.
+- **Model Explainability** – SHAP explanations show why a transaction was flagged.
+- **Admin Control Centre** – Manage users, roles, and system parameters.
+- **Historical Dashboard** – Search, filter, and export the entire transaction history.
+- **Approval Queue** – Pending reviews are clearly listed for analysts.
+- **JWT Authentication** – Secure login with role‑based access (admin, analyst, viewer).
+- **Auto‑generated Reports** – GitHub Actions cron job updates a live `reports.json` for external dashboards.
 
 ---
 
-# 📸 Application Screenshots
+## 🧰 Tech Stack
 
-
-## 🔐 Login Page
-
-Secure JWT authentication with role-based access.
-
-<img src="./loginPage.png" width="900">
-
-
----
-
-## 📡 Transaction Dashboard
-
-Real-time fraud monitoring dashboard.
-
-<img src="./dashboard.png" width="900">
-
+| Layer          | Technology                          |
+|----------------|-------------------------------------|
+| **Backend**    | Python 3.11, FastAPI, SQLAlchemy    |
+| **Frontend**   | React 18, Vite, CSS Modules         |
+| **Database**   | PostgreSQL                          |
+| **ML**         | XGBoost, SHAP, scikit‑learn          |
+| **Infra**      | Docker, Render, GitHub Actions      |
 
 ---
 
-## ⚖️ Human Approval Queue
-
-Analysts review suspicious transactions.
-
-<img src="./HumanApproval.png" width="900">
-
-
----
-
-## 📝 Approval Audit
-
-Complete history of analyst decisions.
-
-<img src="./ApprovalAudit.png" width="900">
-
-
----
-
-## 📋 Transaction History
-
-Search, filter and export transaction records.
-
-<img src="./TransactionHistory.png" width="900">
-
-
----
-
-## 🔍 Single Transaction Prediction
-
-Predict fraud probability for individual transactions.
-
-<img src="./SingleTransactionPredict.png" width="900">
-
-
----
-
-## 📁 Batch Transaction Analysis
-
-Upload CSV files and analyse thousands of transactions.
-
-<img src="./BatchTransactionAnalysis.png" width="900">
-
-
----
-
-## 🧠 Model Information
-
-Machine learning metrics and feature importance.
-
-<img src="./ModelInformation.png" width="900">
-
-
----
-
-# 🛡️ Administration Centre
-
-
-## Admin Dashboard
-
-<img src="./AdminControlCentre.png" width="900">
-
-
----
-
-## User Management
-
-<img src="./AdminControlCentre1.png" width="900">
-
-
----
-
-## Login Audit Logs
-
-<img src="./AdminControlCentre2.png" width="900">
-
-
----
-
-## User Activity Monitoring
-
-<img src="./AdminControlCentre3.png" width="900">
-
-
----
-
-# ✨ Features
-
-
-## 🤖 Machine Learning
-
-- XGBoost fraud classification
-- Feature engineering
-- Fraud probability scoring
-- Risk classification
-- Configurable thresholds
-- SHAP explainability
-
-
----
-
-## 📡 Real-Time Monitoring
-
-- Live transaction feed
-- Fraud detection scoring
-- Risk level classification
-- Dashboard analytics
-- Filtering and search
-
-
----
-
-## ⚖️ Human Approval Workflow
-
-- Manual transaction review
-- Approve / Block decisions
-- Analyst comments
-- Override tracking
-- Approval history
-
-
----
-
-## 📋 Transaction Management
-
-- Transaction history
-- Search
-- Filtering
-- CSV export
-- Audit trail
-
-
----
-
-## 🔍 Fraud Prediction
-
-Supports:
-
-- Transaction amount
-- Time features
-- PCA Features V1-V28
-
-
-Provides:
-
-- Fraud probability
-- Decision
-- Risk level
-
-
----
-
-## 📁 Batch Processing
-
-Upload transaction datasets.
-
-Returns:
-
-- Fraud probability
-- Decision
-- Risk category
-
-
----
-
-## 👥 Administration
-
-Includes:
-
-- User management
-- Role management
-- Account control
-- Login monitoring
-- Activity tracking
-
-
----
-
-# 🔒 Security
-
-Implemented:
-
-- JWT Authentication
-- Role Based Access Control
-- Password hashing
-- Login auditing
-- Protected admin access
-- Secure REST API
-
-
----
-
-# 🏗️ System Architecture
-
-
-```
-                React Frontend
-                      |
-                      |
-                  REST API
-                      |
-                      |
-                 FastAPI Backend
-                      |
-        --------------------------------
-        |              |               |
-        |              |               |
-    XGBoost        PostgreSQL       JWT Auth
-   ML Model        Database        Security
-
-```
-
-
----
-
-# 🧠 Machine Learning Pipeline
-
-
-```
-Transaction Data
-
-        |
-        v
-
-Feature Engineering
-
-        |
-        v
-
-Train XGBoost Model
-
-        |
-        v
-
-Model Evaluation
-
-        |
-        v
-
-Save Model
-
-        |
-        v
-
-FastAPI Prediction API
-
-        |
-        v
-
-React Dashboard
-
-```
-
-
----
-
-# 🛠️ Technology Stack
-
-
-## Frontend
-
-- React
-- Vite
-- JavaScript
-- CSS
-- Chart.js
-
-
-## Backend
-
-- Python
-- FastAPI
-- SQLAlchemy
-- PostgreSQL
-- JWT
-
-
-## Machine Learning
-
-- XGBoost
-- Scikit-learn
-- Pandas
-- NumPy
-- SHAP
-
-
-## DevOps
-
-- Docker
-- Docker Compose
-- GitHub Actions
-
-
----
-
-# 📂 Project Structure
-
-
-```
-FraudGuard
-
+## 🗂️ Project Structure
+fraudguard/
+├── frontend/ # React app (Vite)
+│ ├── src/
+│ │ ├── pages/ # Dashboard, History, Predict, Admin, etc.
+│ │ ├── components/ # Navbar, Sidebar, StatCard, ThemeToggle
+│ │ ├── context/ # ThemeContext
+│ │ ├── services/ # api.js (Axios)
+│ │ ├── App.jsx
+│ │ └── main.jsx
+│ ├── public/ # Static assets
+│ ├── .env.production # Production env vars (no secrets)
+│ └── package.json
 │
-├── .github/
+├── fraud_detection/ # Backend (FastAPI)
+│ ├── api/routes/ # Endpoints: auth, admin, transactions, model, etc.
+│ ├── core/config.py # Settings and env vars
+│ ├── database/ # Postgres connection and session
+│ ├── ml/ # Model loader, inference, explainability
+│ ├── schemas/ # Pydantic models
+│ ├── services/ # Decision service, storage
+│ └── main.py # FastAPI app entrypoint
 │
-├── data/
-│   └── simulation.csv
-│
-├── fraud_detection/
-│
-├── frontend/
-│
-├── models_store/
-│
-├── tests/
-│
-├── AdminControlCentre.png
-├── AdminControlCentre1.png
-├── AdminControlCentre2.png
-├── AdminControlCentre3.png
-├── ApprovalAudit.png
-├── BatchTransactionAnalysis.png
-├── HumanApproval.png
-├── ModelInformation.png
-├── SingleTransactionPredict.png
-├── TransactionHistory.png
-├── dashboard.png
-├── loginPage.png
-│
+├── models_store/ # Serialized ML models and artefacts
+├── tests/ # Unit / integration tests
 ├── Dockerfile
 ├── docker-compose.yml
-├── train.py
-├── main.py
+├── requirements.txt
+├── train.py # Model training script
+├── ingest_pipeline.py # Data ingestion
+├── run_report.py # GitHub Actions report generator
 └── README.md
 
-```
-
+text
 
 ---
 
-# ⚙️ Installation
+## 🚀 Getting Started
 
+### Prerequisites
 
-Clone repository:
+- Python 3.9+
+- Node.js 18+ and npm
+- PostgreSQL (or use the Docker Compose file)
+- (Optional) Docker
 
-```bash
-git clone https://github.com/YOUR_USERNAME/FraudGuard.git
+### Local Development
 
-cd FraudGuard
-```
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/MarvinVutshila/fraudguard-reports.git
+   cd fraudguard-reports
+Backend setup
 
-
-Install backend:
-
-```bash
+bash
+cd fraud_detection
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
+cp .env.example .env      # Edit with your DATABASE_URL and other vars
+python main.py            # API runs on http://localhost:8000
+Frontend setup
 
-
-Install frontend:
-
-```bash
+bash
 cd frontend
-
 npm install
-```
+npm run dev               # Dev server on http://localhost:5173
+Database & initial data
 
+The first run will create tables automatically (if configured).
 
----
+To seed test data, use python ingest_pipeline.py.
 
-# ▶️ Running Application
+Docker
+bash
+docker-compose up --build
+This starts the backend, frontend, and a PostgreSQL container.
+Access the dashboard at http://localhost:3000.
 
+⚙️ Environment Variables
+All configuration is done through environment variables. Never commit real secrets to the repo!
 
-Start database:
+Variable	Description	Default
+DATABASE_URL	PostgreSQL connection string	Required
+SECRET_KEY	JWT secret key	change-me-in-prod
+MODEL_PATH	Path to saved model	models_store/
+REFRESH_INTERVAL	Dashboard auto‑refresh (seconds)	30
+VITE_API_BASE_URL	Backend URL for frontend	http://localhost:8000
+Refer to .env.example for a full list.
 
-```bash
-docker compose up
-```
+📡 API Endpoints
+Method	Route	Description
+POST	/auth/login	User login (returns JWT)
+POST	/transactions/predict	Predict single transaction
+POST	/transactions/batch	Batch prediction (CSV upload)
+GET	/transactions	List / filter transactions
+POST	/admin/override	Override a transaction decision
+GET	/model/info	Model metrics and metadata
+GET	/health	Health check
+All protected endpoints require Authorization: Bearer <token>.
 
+🤖 Machine Learning Pipeline
+Training: train.py uses historical data (test_transactions.csv) to train an XGBoost classifier with hyperparameter tuning.
 
-Run backend:
+Feature Engineering: Handles amount, time, user behaviour, etc. (see ml/feature_engineering.py).
 
-```bash
-python main.py
-```
+Explainability: SHAP values are generated for every prediction to show why a transaction is risky.
 
+Model Storage: Trained model and preprocessors are saved in models_store/ and loaded at runtime.
 
-Backend:
+🌍 Deployment
+Render (Backend + Frontend)
+Connect your GitHub repo.
 
-```
-http://localhost:8000
-```
+Create a Web Service for the backend (Dockerfile) and a Static Site for the frontend (frontend/dist).
 
+Set all environment variables in the Render dashboard.
 
-Swagger:
+The render.yaml blueprint can automate this.
 
-```
-http://localhost:8000/docs
-```
+GitHub Pages (Dashboard only)
+The separate fraudguard-reports repo serves a live report dashboard that consumes data/reports.json, updated every hour by GitHub Actions.
 
+🤝 Contributing
+Pull requests are welcome! For major changes, please open an issue first to discuss what you’d like to change.
+Please ensure that all secrets are removed before pushing.
 
-Run frontend:
-
-```bash
-cd frontend
-
-npm run dev
-```
-
-
-Frontend:
-
-```
-http://localhost:5173
-```
-
-
----
-
-# 🔌 API Features
-
-- Authentication
-- JWT Authorization
-- Fraud Prediction
-- Batch Prediction
-- Transaction Monitoring
-- Approval Queue
-- Audit Logs
-- User Management
-- Model Information
-
-
----
-
-# 📊 Machine Learning Performance
-
-
-| Metric | Score |
-|-|-|
-| Accuracy | 99.82% |
-| Precision | 90.00% |
-| Recall | 82.65% |
-| F1 Score | 86.17% |
-| ROC AUC | 98.16% |
-
-
----
-
-# 🔄 Fraud Detection Workflow
-
-
-```
-Incoming Transaction
-
-        |
-
-        v
-
-Feature Engineering
-
-        |
-
-        v
-
-XGBoost Prediction
-
-        |
-
-        v
-
-Fraud Probability
-
-        |
-
-        v
-
-
-Approve  ---> Complete
-
-Review   ---> Human Analyst
-
-Block    ---> Reject
-
-
-        |
-
-        v
-
-Audit Log Updated
-
-        |
-
-        v
-
-Dashboard Refresh
-
-```
-
-
----
-
-# 🌟 Future Improvements
-
-- WebSocket real-time updates
-- Email alerts
-- SMS notifications
-- MFA authentication
-- Explainable AI dashboard
-- Kubernetes deployment
-- Prometheus monitoring
-- Grafana dashboards
-
-
----
-
-# 👨‍💻 Author
-
-
-## Marvin Vutshila
-
-Computer Science Student
-
-Machine Learning Engineer
-
-Full Stack Developer
-
-
-GitHub:
-
-```
-https://github.com/YOUR_USERNAME
-```
-
-
-LinkedIn:
-
-```
-https://linkedin.com/in/YOUR_LINKEDIN
-```
-
-
----
-
-# 📄 License
-
-MIT License
-
-
----
-
-# ⭐ Support
-
-If you like this project, consider giving it a ⭐ on GitHub.
-
-Thank you for visiting **FraudGuard** 🚀
+📝 License
+MIT © Marvin Vutshila
