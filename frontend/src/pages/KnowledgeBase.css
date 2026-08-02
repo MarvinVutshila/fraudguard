@@ -1,0 +1,149 @@
+.kb-container {
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.kb-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.kb-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.kb-search {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text);
+  min-width: 250px;
+}
+
+.kb-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.kb-table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.kb-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.kb-table th {
+  background: var(--surface2);
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.kb-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.kb-table tr:hover {
+  background: var(--surface2);
+}
+
+.kb-question {
+  font-weight: 500;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kb-answer {
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-muted);
+}
+
+.kb-category {
+  background: var(--accent-dim);
+  color: var(--accent);
+  padding: 0.2rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.kb-footer {
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+}
+
+.kb-table .btn-secondary,
+.kb-table .btn-danger-soft {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+  margin: 0 0.2rem;
+}
+
+.loading-cell,
+.empty-cell {
+  text-align: center;
+  padding: 2rem 0 !important;
+  color: var(--text-muted);
+}
+
+/* Modal overrides – reuse your existing modal classes */
+.modal-card .field {
+  margin-bottom: 1rem;
+}
+
+.modal-card .field label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.2rem;
+}
+
+.modal-card .field input,
+.modal-card .field textarea,
+.modal-card .field select {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border-md);
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.modal-card .field textarea {
+  resize: vertical;
+}
+
+.modal-card .field input:focus,
+.modal-card .field textarea:focus,
+.modal-card .field select:focus {
+  outline: none;
+  border-color: var(--accent);
+}

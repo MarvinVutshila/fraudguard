@@ -1,0 +1,385 @@
+/* ==========================================================================
+   FraudGuard Enterprise — Security Centre Dashboard
+   Design language: dark banking SOC terminal. Inter for UI, JetBrains Mono
+   for every number, id, timestamp and status readout — the dashboard should
+   read like a trading-floor / threat-intel terminal, not a marketing page.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+:root {
+  /* ---- surfaces ---- */
+  --fg-bg: #08111f;
+  --fg-bg-elevated: #0b1526;
+  --fg-card: #111827;
+  --fg-card-hover: #141f33;
+  --fg-border: #1f2937;
+  --fg-border-soft: rgba(31, 41, 55, 0.6);
+
+  /* ---- text ---- */
+  --fg-text-primary: #eef2f9;
+  --fg-text-secondary: #94a3b8;
+  --fg-text-muted: #5b6b84;
+
+  /* ---- brand / semantic ---- */
+  --fg-primary: #3b6ef6;
+  --fg-primary-dim: #2748a8;
+  --fg-accent: #22d3ee;
+  --fg-success: #10b981;
+  --fg-warning: #f59e0b;
+  --fg-danger: #ef4444;
+
+  --fg-primary-glow: rgba(59, 110, 246, 0.35);
+  --fg-accent-glow: rgba(34, 211, 238, 0.3);
+  --fg-success-glow: rgba(16, 185, 129, 0.3);
+  --fg-warning-glow: rgba(245, 158, 11, 0.3);
+  --fg-danger-glow: rgba(239, 68, 68, 0.35);
+
+  --fg-radius-lg: 18px;
+  --fg-radius-md: 12px;
+  --fg-radius-sm: 8px;
+
+  --fg-font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --fg-font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+
+  color-scheme: dark;
+}
+
+[data-theme='light'] {
+  --fg-bg: #f3f5fa;
+  --fg-bg-elevated: #ffffff;
+  --fg-card: #ffffff;
+  --fg-card-hover: #f8fafc;
+  --fg-border: #e2e8f0;
+  --fg-border-soft: rgba(226, 232, 240, 0.8);
+  --fg-text-primary: #0f1729;
+  --fg-text-secondary: #475569;
+  --fg-text-muted: #94a3b8;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+
+.fg-root {
+  font-family: var(--fg-font-ui);
+  background: var(--fg-bg);
+  color: var(--fg-text-primary);
+  min-height: 100vh;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* faint schematic grid across the whole app, like a terminal board */
+.fg-root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--fg-border-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--fg-border-soft) 1px, transparent 1px);
+  background-size: 64px 64px;
+  opacity: 0.15;
+  z-index: 0;
+}
+
+.fg-mono { font-family: var(--fg-font-mono); font-variant-numeric: tabular-nums; }
+
+/* scrollbars */
+.fg-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.fg-scroll::-webkit-scrollbar-track { background: transparent; }
+.fg-scroll::-webkit-scrollbar-thumb { background: var(--fg-border); border-radius: 8px; }
+.fg-scroll::-webkit-scrollbar-thumb:hover { background: var(--fg-primary-dim); }
+
+/* ==========================================================================
+   Glass surfaces
+   ========================================================================== */
+
+.fg-glass {
+  background: linear-gradient(180deg, var(--fg-card) 0%, rgba(17, 24, 39, 0.72) 100%);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid var(--fg-border);
+  border-radius: var(--fg-radius-lg);
+}
+
+[data-theme='light'] .fg-glass {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.fg-topbar {
+  background: rgba(8, 17, 31, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--fg-border);
+}
+
+[data-theme='light'] .fg-topbar {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.fg-sidebar {
+  background: linear-gradient(180deg, var(--fg-bg-elevated) 0%, var(--fg-bg) 100%);
+  border-right: 1px solid var(--fg-border);
+}
+
+/* ==========================================================================
+   Gradient border cards (KPI widgets)
+   ========================================================================== */
+
+.fg-kpi-card {
+  position: relative;
+  border-radius: var(--fg-radius-lg);
+  padding: 1px;
+  background: linear-gradient(140deg, var(--fg-border) 0%, transparent 40%, transparent 60%, var(--fg-border) 100%);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), background 0.35s ease;
+  isolation: isolate;
+}
+
+.fg-kpi-card:hover {
+  transform: translateY(-3px);
+  background: linear-gradient(140deg, var(--fg-accent) 0%, transparent 45%, transparent 55%, var(--fg-primary) 100%);
+}
+
+.fg-kpi-card__inner {
+  position: relative;
+  height: 100%;
+  border-radius: calc(var(--fg-radius-lg) - 1px);
+  background: var(--fg-card);
+  padding: 18px 20px;
+  overflow: hidden;
+  transition: background 0.3s ease;
+}
+
+.fg-kpi-card:hover .fg-kpi-card__inner { background: var(--fg-card-hover); }
+
+.fg-kpi-card__glow {
+  position: absolute;
+  top: -40%;
+  right: -30%;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  filter: blur(50px);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.fg-kpi-card:hover .fg-kpi-card__glow { opacity: 0.55; }
+
+/* ==========================================================================
+   Buttons / chips / badges
+   ========================================================================== */
+
+.fg-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--fg-radius-sm);
+  border: 1px solid var(--fg-border);
+  background: var(--fg-card);
+  color: var(--fg-text-secondary);
+  transition: all 0.2s ease;
+}
+.fg-icon-btn:hover {
+  color: var(--fg-text-primary);
+  border-color: var(--fg-primary-dim);
+  background: var(--fg-card-hover);
+  box-shadow: 0 0 0 3px var(--fg-primary-glow);
+}
+
+.fg-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+.fg-chip--success { color: var(--fg-success); background: var(--fg-success-glow); border-color: rgba(16,185,129,0.35); }
+.fg-chip--warning { color: var(--fg-warning); background: var(--fg-warning-glow); border-color: rgba(245,158,11,0.35); }
+.fg-chip--danger  { color: var(--fg-danger);  background: var(--fg-danger-glow);  border-color: rgba(239,68,68,0.35); }
+.fg-chip--info    { color: var(--fg-accent);  background: var(--fg-accent-glow);  border-color: rgba(34,211,238,0.35); }
+.fg-chip--neutral { color: var(--fg-text-secondary); background: rgba(148,163,184,0.1); border-color: var(--fg-border); }
+
+/* live pulse dot */
+.fg-pulse-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fg-success);
+  flex-shrink: 0;
+}
+.fg-pulse-dot::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1.5px solid var(--fg-success);
+  animation: fg-pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.fg-pulse-dot--danger { background: var(--fg-danger); }
+.fg-pulse-dot--danger::after { border-color: var(--fg-danger); }
+.fg-pulse-dot--warning { background: var(--fg-warning); }
+.fg-pulse-dot--warning::after { border-color: var(--fg-warning); }
+
+@keyframes fg-pulse-ring {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+/* ==========================================================================
+   Hero — animated threat mesh backdrop
+   ========================================================================== */
+
+.fg-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--fg-radius-lg);
+  border: 1px solid var(--fg-border);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(59,110,246,0.22) 0%, transparent 55%),
+    radial-gradient(100% 120% at 100% 0%, rgba(34,211,238,0.14) 0%, transparent 55%),
+    linear-gradient(180deg, #0c1728 0%, #08111f 100%);
+}
+
+.fg-hero__scanline {
+  position: absolute;
+  left: 0; right: 0;
+  height: 120px;
+  background: linear-gradient(180deg, transparent, rgba(34,211,238,0.08), transparent);
+  animation: fg-scan 7s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes fg-scan {
+  0% { transform: translateY(-140px); }
+  100% { transform: translateY(420px); }
+}
+
+.fg-hero__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(148,163,184,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148,163,184,0.06) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 0%, black 40%, transparent 90%);
+}
+
+.fg-hero__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   Sparkline wrapper
+   ========================================================================== */
+
+.fg-spark { width: 100%; height: 44px; }
+
+/* ==========================================================================
+   Circular gauge (pure SVG, framer-motion animates strokeDashoffset)
+   ========================================================================== */
+
+.fg-gauge-track { stroke: var(--fg-border); }
+.fg-gauge-label { font-family: var(--fg-font-mono); }
+
+/* ==========================================================================
+   Sidebar nav
+   ========================================================================== */
+
+.fg-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--fg-radius-sm);
+  color: var(--fg-text-secondary);
+  font-size: 13.5px;
+  font-weight: 500;
+  transition: all 0.18s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.fg-nav-item:hover {
+  color: var(--fg-text-primary);
+  background: var(--fg-card);
+}
+.fg-nav-item--active {
+  color: #fff;
+  background: linear-gradient(90deg, var(--fg-primary-dim), transparent);
+}
+.fg-nav-item--active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 8%;
+  bottom: 8%;
+  width: 3px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, var(--fg-accent), var(--fg-primary));
+  box-shadow: 0 0 10px var(--fg-primary-glow);
+}
+
+/* ==========================================================================
+   Tables (row hover, sticky header)
+   ========================================================================== */
+
+.fg-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--fg-bg-elevated);
+  z-index: 1;
+}
+.fg-table tbody tr {
+  transition: background 0.15s ease;
+  border-bottom: 1px solid var(--fg-border-soft);
+}
+.fg-table tbody tr:hover {
+  background: rgba(59, 110, 246, 0.06);
+}
+
+/* ==========================================================================
+   Misc utilities
+   ========================================================================== */
+
+.fg-divider { border-color: var(--fg-border); }
+
+.fg-text-gradient {
+  background: linear-gradient(90deg, #ffffff 0%, #a9c1ff 60%, var(--fg-accent) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.fg-skeleton {
+  background: linear-gradient(90deg, var(--fg-card) 25%, var(--fg-card-hover) 37%, var(--fg-card) 63%);
+  background-size: 400% 100%;
+  animation: fg-shimmer 1.4s ease infinite;
+  border-radius: var(--fg-radius-sm);
+}
+@keyframes fg-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fg-hero__scanline, .fg-pulse-dot::after, .fg-skeleton { animation: none; }
+  .fg-kpi-card, .fg-icon-btn { transition: none; }
+}
+
+@media (max-width: 1024px) {
+  .fg-hero { padding: 24px !important; }
+}

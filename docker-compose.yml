@@ -1,0 +1,42 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: marvin
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: fraud
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://marvin:${DB_PASSWORD}@postgres:5432/fraud
+      API_KEY: ${API_KEY}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    ports:
+      - "8501:8501"
+    environment:
+      API_URL: http://api:8000
+      API_KEY: ${API_KEY}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

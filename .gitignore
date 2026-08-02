@@ -1,0 +1,56 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.log
+
+# Environment
+.env
+.env.local
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Data & large files
+data/
+*.csv
+*.pkl
+*.jpg
+*.png
+*.pptx
+*.sql
+
+# Test files
+tests/
+evaluate_mode.py
+train.py
+batch_processor.py
+code_audit.py
+apply_fixes.py
+prepare_for_connections.py
+show_structure.py
+eval_state.json
+test_transactions.csv
+add_missing_index.sql
+model_evaluation_plots.png
+
+# Docker (optional, keep if you use containers)
+# Dockerfile
+# docker-compose.yml
+
+# Render will ignore .gitignore anyway, but good to clean repo..env
+models_store/
+frontend/dist/
+__pycache__/
+*.pyc
+.DS_Store
