@@ -104,18 +104,13 @@ export const refreshToken = (token) => api.post('/auth/refresh', { refresh_token
 export const getCurrentUser = () => api.get('/auth/me');
 
 // 7. Admin
-// ✅ getPendingUsers – matches backend `/admin/users/pending`
 export const getPendingUsers = () => api.get('/admin/users/pending');
-// ✅ getUsers – fetch paginated user list
 export const getUsers = (params) => api.get('/admin/users', { params });
-// ✅ approveUser – sends `user_id` in body
 export const approveUser = (userId, approve) => 
   api.post(`/admin/users/approve`, { user_id: userId, approve });
-// Block, unblock, delete are correct
 export const blockUser = (userId) => api.post(`/admin/users/${userId}/block`, {});
 export const unblockUser = (userId) => api.post(`/admin/users/${userId}/unblock`);
 export const deleteUser = (userId) => api.delete(`/admin/users/${userId}`);
-// Stats and alerts
 export const getUserStats = () => api.get('/admin/dashboard/summary');
 export const getSecurityAlerts = () => api.get('/admin/alerts');
 export const getLoginLogs = (params) => api.get('/admin/login-logs', { params });
@@ -139,7 +134,7 @@ export const uploadAvatar = (file) => {
 export const healthCheck = () => api.get('/health');
 
 // === Export the base URL so other files can import it ===
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+export { API_BASE_URL };
 
 // Default export of the configured api instance
 export default api;
