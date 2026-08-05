@@ -5,7 +5,7 @@ services:
     image: postgres:15
     environment:
       POSTGRES_USER: marvin
-      POSTGRES_PASSWORD: ${DB_PASSWORD}  # Must set this in .env
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: fraud
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -21,9 +21,11 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile.api   # Uses your existing file
+      dockerfile: Dockerfile.api
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://marvin:${DB_PASSWORD}@postgres:5432/fraud
       API_KEY: ${API_KEY}
@@ -35,9 +37,9 @@ services:
   frontend:
     build:
       context: .
-      dockerfile: Dockerfile.frontend  # The new one we just made
+      dockerfile: Dockerfile.frontend
     ports:
-      - "80:80"  # Maps Nginx to host port 80
+      - "80:80"
     depends_on:
       - api
     restart: unless-stopped
