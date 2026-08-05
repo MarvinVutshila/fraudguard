@@ -1,39 +1,43 @@
 version: '3.8'
+
 services:
   postgres:
     image: postgres:15
     environment:
       POSTGRES_USER: marvin
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}  # Must set this in .env
       POSTGRES_DB: fraud
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marvin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   api:
     build:
       context: .
-      dockerfile: Dockerfile.api
+      dockerfile: Dockerfile.api   # Uses your existing file
     ports:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://marvin:${DB_PASSWORD}@postgres:5432/fraud
       API_KEY: ${API_KEY}
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
-  streamlit:
+  frontend:
     build:
       context: .
-      dockerfile: Dockerfile.streamlit
+      dockerfile: Dockerfile.frontend  # The new one we just made
     ports:
-      - "8501:8501"
-    environment:
-      API_URL: http://api:8000
-      API_KEY: ${API_KEY}
+      - "80:80"  # Maps Nginx to host port 80
     depends_on:
       - api
     restart: unless-stopped
