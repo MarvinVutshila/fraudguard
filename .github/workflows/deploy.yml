@@ -25,3 +25,5 @@ jobs:
             export VITE_API_BASE_URL="http://13.40.181.181:8000"
             docker-compose build frontend
             docker-compose up -d frontend
+          use_insecure_cipher: true
+          fingerprint: ''
