@@ -1,12 +1,10 @@
 import logging
 import uuid
-import datetime
-import json
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from fraud_detection.api.dependencies import get_services, verify_token
-from fraud_detection.schemas import TransactionRequest  # Needed for ingestion
+from fraud_detection.schemas import TransactionRequest
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +13,7 @@ router = APIRouter()
 class OverrideRequest(BaseModel):
     new_decision: str
     reason: str
-    new_probability: Optional[float] = None  # <-- Add this to accept AI's new probability
+    new_probability: Optional[float] = None  # <-- Accept AI's new probability
 
 @router.get("/transactions")
 async def get_transactions(
@@ -26,10 +24,10 @@ async def get_transactions(
 ):
     """
     Fetch transactions with override information.
-    ✅ FIX: Now accessible to all authenticated users (analysts + admins)
+    ✅ Accessible to all authenticated users (analysts + admins)
     """
     try:
-        # Normalize decision: treat empty string or 'All' as None
+        # Normalize decision
         if decision in ("", "All", "all"):
             decision = None
 
@@ -50,10 +48,8 @@ async def get_transactions(
             rec["overridden_by"] = override["overridden_by"] if override else None
             result.append(rec)
 
-        # Get the TRUE total count (without pagination)
         total = svc.storage_service.count_transactions(decision)
 
-        # Log the values for debugging
         logger.info(f"[transactions] limit={limit}, offset={offset}, decision={decision}, records={len(result)}, total={total}")
 
         return {
@@ -66,7 +62,6 @@ async def get_transactions(
         logger.error(f"Error in /transactions: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
 
-
 @router.post("/transactions/{tx_id}/override")
 async def override_transaction(
     tx_id: str,
@@ -75,7 +70,7 @@ async def override_transaction(
 ):
     """
     Override a transaction decision, update the transaction itself,
-    and optionally save the new AI probability to fix the audit log mismatch.
+    and optionally save the new AI probability (but **not** in the override history).
     """
     try:
         svc = get_services()
@@ -86,17 +81,16 @@ async def override_transaction(
         original_decision = original.get("decision")
         new_decision = req.new_decision
         reason = req.reason
-        new_probability = req.new_probability  # <-- Extract the new probability
+        new_probability = req.new_probability
         username = user.get("sub", "unknown")
 
-        # Save override history (including the new AI probability)
+        # Save override history (without new_probability)
         svc.storage_service.set_override(
-            tx_id, 
-            original_decision, 
-            new_decision, 
-            username, 
-            reason,
-            new_probability  # <-- Pass it to storage
+            tx_id,
+            original_decision,
+            new_decision,
+            username,
+            reason
         )
 
         # Update the transaction's decision and risk level
@@ -106,14 +100,9 @@ async def override_transaction(
             'REVIEW': 'MEDIUM'
         }
         new_risk = risk_map.get(new_decision, 'MEDIUM')
-        
-        # Also update the probability column if a new one was provided (fixes UI mismatch)
-        svc.storage_service.update_transaction_decision(
-            tx_id, 
-            new_decision, 
-            new_risk,
-            new_probability  # <-- Pass it to update the DB table
-        )
+
+        # Also update the probability if a new one was provided
+        svc.storage_service.db.update_transaction_decision(tx_id, new_decision, new_risk, new_probability)
 
         return {
             "status": "ok",
@@ -126,40 +115,38 @@ async def override_transaction(
         logger.error(f"Error overriding transaction {tx_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Override failed: {str(e)}")
 
-
 # ---------------------------------------------------------
-# 🚀 NEW ENDPOINT: Real-time Ingestion with Model Prediction
+# Real‑time Ingestion Endpoint
 # ---------------------------------------------------------
 @router.post("/transactions/ingest")
 async def ingest_transaction(request: dict):
     """
-    🚀 NEW ENDPOINT: Receives raw transaction data, runs your trained ML model 
+    Receives raw transaction data, runs the ML model
     to calculate the REAL fraud probability, and saves it to the database.
     """
     try:
         svc = get_services()
 
-        # 1. Extract features just like agent.py does
+        # 1. Extract features
         amount = request.get('Amount') or request.get('amount')
         time_val = request.get('Time') or request.get('timestamp') or 0
-        
+
         features = {
             "Amount": amount,
             "Time": time_val,
         }
-        # Collect V1 - V28 dynamically
         for key, value in request.items():
             if key.startswith('V'):
                 features[key] = value
 
-        # 2. Pass to your trained Prediction Service to get the REAL probability
+        # 2. Get prediction from ML model
         tx_request = TransactionRequest(**features)
         pred_response = svc.prediction_service.predict(tx_request, explain=False)
 
         real_probability = float(pred_response.fraud_probability)
-        real_decision = pred_response.decision  # 'APPROVE' or 'REVIEW'
+        real_decision = pred_response.decision
 
-        # 3. Automatically set the Risk Level based on the real probability
+        # 3. Set Risk Level
         if real_probability > 0.8:
             risk_level = 'CRITICAL'
         elif real_probability > 0.5:
@@ -169,11 +156,9 @@ async def ingest_transaction(request: dict):
         else:
             risk_level = 'LOW'
 
-        # 4. Save the transaction to the database using your storage_service
+        # 4. Save the transaction
         new_tx_id = f"txn-{uuid.uuid4().hex[:12]}"
-        
-        # 🟡 NOTE: Ensure your storage_service has a create_transaction method.
-        # If not, open fraud_detection/application/services/storage_service.py and add it.
+
         svc.storage_service.create_transaction(
             transaction_id=new_tx_id,
             amount=amount,

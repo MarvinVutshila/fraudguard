@@ -9,7 +9,7 @@ import api from '../services/api';
 import StatusBadge from '../components/StatusBadge';
 import '../styles/settings.css';
 
-const API_BASE = 'http://localhost:8000';
+import { API_BASE_URL } from '../services/api';
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState('profile');
@@ -127,7 +127,7 @@ export default function Settings() {
     setTwofaLoading(true);
     try {
       console.log('🔄 Calling /settings/2fa/setup...');
-      const res = await fetch(`${API_BASE}/settings/2fa/setup`, {
+      const res = await fetch(`${API_BASE_URL}/settings/2fa/setup`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`, 
@@ -165,7 +165,7 @@ export default function Settings() {
     setTwofaLoading(true);
     try {
       const token = getToken();
-      const res = await fetch(`${API_BASE}/settings/2fa/verify-setup`, {
+      const res = await fetch(`${API_BASE_URL}/settings/2fa/verify-setup`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${token}`, 

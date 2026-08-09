@@ -1,7 +1,7 @@
-# main.py - with Monitoring & Observability, SPA fallback, activity tracking,
-# and AI Agent (SHAP explainer initialised)
+# main.py - FraudGuard API entry point (AWS EC2 production)
+# Includes Monitoring, SPA fallback, activity tracking, AI Agent, and Knowledge Base POST fix
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from contextlib import asynccontextmanager
@@ -18,10 +18,9 @@ from fraud_detection.application.services.decision_service import DecisionServic
 from fraud_detection.infrastructure.repositories.postgres_transaction_repository import StorageService
 from fraud_detection.database.postgres_db import Database, init_db_pool, create_tables
 from fraud_detection.api import router
-from fraud_detection.api.dependencies import set_services
-from fraud_detection.api.routes.auth import create_access_token
-from fraud_detection.api.routes import assistant
-from fraud_detection.api.routes import knowledge_base
+from fraud_detection.api.dependencies import set_services, verify_token
+from fraud_detection.api.routes import assistant, knowledge_base
+from fraud_detection.api.routes.knowledge_base import KBEntryCreate
 from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt
 
@@ -36,8 +35,8 @@ logging.basicConfig(level=LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
 # ---------- Support Configuration ----------
-SUPPORT_EMAIL = os.getenv("SUPPORT_EMAIL", "marvin@support.co.za")
-SUPPORT_PHONE = os.getenv("SUPPORT_PHONE", "+27 82 123 4567")
+SUPPORT_EMAIL = os.getenv("SUPPORT_EMAIL", "marvinmakhubela04@gmail.com")
+SUPPORT_PHONE = os.getenv("SUPPORT_PHONE", "+27670957647")
 
 # ---------- Service Classes ----------
 class Services:
@@ -58,18 +57,14 @@ async def lifespan(app: FastAPI):
         create_tables()
         db = Database()
         
-        # Ensure refresh tokens table exists
         if hasattr(db, 'create_refresh_tokens_table'):
             db.create_refresh_tokens_table()
-        
-        # Ensure TOTP columns exist
         if hasattr(db, 'add_totp_columns'):
             db.add_totp_columns()
 
         logger.info("Loading model artefacts…")
         artefacts = load_artefacts(MODELS_DIR)
 
-        # ---- Initialise SHAP explainer (for AI Agent) ----
         init_explainer(artefacts.model, artefacts.feature_names)
         logger.info("SHAP explainer initialised.")
 
@@ -88,11 +83,9 @@ async def lifespan(app: FastAPI):
         set_services(services)
         logger.info("Application startup complete.")
 
-        # ---- Start monitoring workers (middleware is already attached) ----
         start_monitoring(app)
         logger.info("Monitoring workers started.")
 
-        # ---- Start daily cleanup scheduler ----
         asyncio.create_task(cleanup_scheduler())
 
     except Exception as e:
@@ -104,10 +97,8 @@ async def lifespan(app: FastAPI):
     stop_monitoring()
     logger.info("Monitoring stopped.")
 
-# ---------- Daily Cleanup Scheduler (runs at 2:00 AM) ----------
+# ---------- Daily Cleanup Scheduler ----------
 async def cleanup_scheduler():
-    """Run the cleanup endpoint once per day."""
-    # Use environment variable for internal API URL, fallback to localhost
     BASE_URL = os.getenv("INTERNAL_API_URL", "http://localhost:8000")
     while True:
         now = datetime.utcnow()
@@ -135,12 +126,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# ---- ATTACH MONITORING MIDDLEWARE (MUST BE BEFORE LIFESPAN) ----
 attach_monitoring_middleware(app)
 
-# ---- CORS Middleware ----
-# Read allowed origins from environment variable, fallback to local dev origins
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000,https://fraudguard-434w.onrender.com").split(",")
+# ---- CORS Middleware (cleaned for EC2 only) ----
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173,"
+    "http://localhost:8000,http://127.0.0.1:8000,"
+    "http://13.40.181.181"
+).split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -150,32 +143,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---- Health check endpoint ----
+# ---- Health check ----
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "message": "FraudGuard API is running"}
 
-# 1. Include API routers FIRST
+# ---- Include all routers ----
 app.include_router(router)
 app.include_router(assistant.router)
 app.include_router(knowledge_base.router)
 
-# 2. Determine frontend folder
+# ---- FIX: Fallback POST route for /knowledge_base (no trailing slash) ----
+@app.post("/knowledge_base")
+async def fallback_create_knowledge(entry: KBEntryCreate, user=Depends(verify_token)):
+    if user.get("role") != "admin":
+        raise HTTPException(403, "Admin required")
+    db = Database()
+    entry_id = db.create_knowledge_base_entry(
+        question=entry.question,
+        answer=entry.answer,
+        category=entry.category,
+        keywords=entry.keywords
+    )
+    return {"id": entry_id, "message": "Entry created"}
+
+# ---- Frontend static files ----
 frontend_path = os.path.join(os.path.dirname(__file__), "frontend", "dist")
 if not os.path.exists(frontend_path):
     frontend_path = os.path.join(os.path.dirname(__file__), "frontend")
 logger.info(f"Frontend path set to: {frontend_path}")
 
-# 3. Mount static assets (JS, CSS, images) under /assets
 assets_path = os.path.join(frontend_path, "assets")
 if os.path.exists(assets_path):
     app.mount("/assets", StaticFiles(directory=assets_path), name="assets")
     logger.info(f"Assets mounted from: {assets_path}")
 
-# 4. Middleware to track last_active AND check if user is blocked
+# ---- Middleware for user tracking and block checks ----
 @app.middleware("http")
 async def track_last_active_and_check_blocked(request: Request, call_next):
-    """Tracks last_active and blocks blocked/deleted users."""
     public_paths = {"/auth/login", "/auth/register", "/health", "/", "/docs", "/openapi.json", "/favicon.ico"}
     if request.url.path in public_paths:
         return await call_next(request)
@@ -227,7 +232,7 @@ async def track_last_active_and_check_blocked(request: Request, call_next):
     response = await call_next(request)
     return response
 
-# 5. Catch‑all route: serve static files or index.html
+# ---- Catch‑all SPA route ----
 @app.get("/{full_path:path}")
 async def serve_spa(request: Request, full_path: str):
     if full_path.startswith("admin/") or full_path.startswith("auth/") or full_path.startswith("api/"):

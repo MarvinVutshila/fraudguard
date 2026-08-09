@@ -29,6 +29,7 @@ services:
     environment:
       DATABASE_URL: postgresql://marvin:${DB_PASSWORD}@postgres:5432/fraud
       API_KEY: ${API_KEY}
+      GROQ_API_KEY: ${GROQ_API_KEY}   # <-- Added this line
     depends_on:
       postgres:
         condition: service_healthy
@@ -38,6 +39,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
     ports:
       - "80:80"
     depends_on:

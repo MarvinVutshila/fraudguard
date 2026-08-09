@@ -98,7 +98,6 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens (token);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens (expires_at);
 """
 
-# -------- Monitoring Tables (added for Observability) --------
 CREATE_MONITORING_REQUESTS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS api_requests (
     id              BIGSERIAL PRIMARY KEY,
@@ -145,14 +144,13 @@ CREATE TABLE IF NOT EXISTS system_health (
 CREATE INDEX IF NOT EXISTS idx_system_health_ts ON system_health (timestamp DESC);
 """
 
-# -------- Settings Tables (new) --------
 CREATE_API_KEYS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS api_keys (
     id          SERIAL PRIMARY KEY,
     user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE,
     name        TEXT NOT NULL,
     key         TEXT UNIQUE NOT NULL,
-    prefix      TEXT,   -- first 6 chars for display
+    prefix      TEXT,
     last_used   TIMESTAMPTZ,
     expires_at  TIMESTAMPTZ,
     revoked     BOOLEAN DEFAULT FALSE,
@@ -171,7 +169,6 @@ CREATE TABLE IF NOT EXISTS system_settings (
 );
 """
 
-# -------- Knowledge Base Table (NEW) --------
 CREATE_KNOWLEDGE_BASE_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS knowledge_base (
     id          SERIAL PRIMARY KEY,
@@ -210,83 +207,44 @@ def create_tables() -> None:
             cur.execute(CREATE_LOGIN_LOGS_TABLE_SQL)
             cur.execute(CREATE_USER_ACTIVITY_TABLE_SQL)
             cur.execute(CREATE_REFRESH_TOKENS_TABLE_SQL)
-            # Monitoring tables
             cur.execute(CREATE_MONITORING_REQUESTS_TABLE_SQL)
             cur.execute(CREATE_MONITORING_HOURLY_TABLE_SQL)
             cur.execute(CREATE_SYSTEM_HEALTH_TABLE_SQL)
-            # Settings tables
             cur.execute(CREATE_API_KEYS_TABLE_SQL)
             cur.execute(CREATE_SYSTEM_SETTINGS_TABLE_SQL)
-            # Knowledge Base table
             cur.execute(CREATE_KNOWLEDGE_BASE_TABLE_SQL)
         conn.commit()
 
-    # Add missing columns if they don't exist
     with get_connection() as conn:
         with conn.cursor() as cur:
-            # Check and add last_active
-            cur.execute("""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name='users' AND column_name='last_active';
-            """)
+            cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='last_active';")
             if not cur.fetchone():
                 cur.execute("ALTER TABLE users ADD COLUMN last_active TIMESTAMPTZ;")
                 logger.info("Added last_active column.")
-
-            # Add blocked_reason
-            cur.execute("""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name='users' AND column_name='blocked_reason';
-            """)
+            cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='blocked_reason';")
             if not cur.fetchone():
                 cur.execute("ALTER TABLE users ADD COLUMN blocked_reason TEXT;")
                 logger.info("Added blocked_reason column.")
-
-            # Add blocked_at
-            cur.execute("""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name='users' AND column_name='blocked_at';
-            """)
+            cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='blocked_at';")
             if not cur.fetchone():
                 cur.execute("ALTER TABLE users ADD COLUMN blocked_at TIMESTAMPTZ;")
                 logger.info("Added blocked_at column.")
-
-            # Add totp_secret
-            cur.execute("""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name='users' AND column_name='totp_secret';
-            """)
+            cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='totp_secret';")
             if not cur.fetchone():
                 cur.execute("ALTER TABLE users ADD COLUMN totp_secret TEXT;")
                 logger.info("Added totp_secret column.")
-
-            # Add totp_enabled
-            cur.execute("""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name='users' AND column_name='totp_enabled';
-            """)
+            cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='totp_enabled';")
             if not cur.fetchone():
                 cur.execute("ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN DEFAULT FALSE;")
                 logger.info("Added totp_enabled column.")
-
-            # Add preferences
-            cur.execute("""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name='users' AND column_name='preferences';
-            """)
+            cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='preferences';")
             if not cur.fetchone():
                 cur.execute("ALTER TABLE users ADD COLUMN preferences JSONB DEFAULT '{}';")
                 logger.info("Added preferences column.")
-
-            # ✅ Add features column to transactions if missing
-            cur.execute("""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name='transactions' AND column_name='features';
-            """)
+            cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='transactions' AND column_name='features';")
             if not cur.fetchone():
                 cur.execute("ALTER TABLE transactions ADD COLUMN features JSONB;")
                 logger.info("Added features column to transactions.")
-
         conn.commit()
 
     logger.info("Database tables and indexes verified")
@@ -385,6 +343,7 @@ class Database:
                 row = cur.fetchone()
         return dict(row) if row else None
 
+    # ✅ Corrected: no new_probability
     def set_override(self, transaction_id: str, original_decision: str,
                      new_decision: str, overridden_by: str, reason: str) -> None:
         sql = """
@@ -425,15 +384,25 @@ class Database:
                 rows = cur.fetchall()
         return [dict(row) for row in rows]
 
-    def update_transaction_decision(self, transaction_id: str, decision: str, risk_level: str) -> None:
-        sql = """
-            UPDATE transactions
-            SET decision = %s, risk_level = %s
-            WHERE transaction_id = %s;
-        """
+    # ✅ Corrected: accepts new_probability
+    def update_transaction_decision(self, transaction_id: str, decision: str, risk_level: str, new_probability: Optional[float] = None) -> None:
+        if new_probability is not None:
+            sql = """
+                UPDATE transactions
+                SET decision = %s, risk_level = %s, probability = %s
+                WHERE transaction_id = %s;
+            """
+            params = (decision, risk_level, new_probability, transaction_id)
+        else:
+            sql = """
+                UPDATE transactions
+                SET decision = %s, risk_level = %s
+                WHERE transaction_id = %s;
+            """
+            params = (decision, risk_level, transaction_id)
         with get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(sql, (decision, risk_level, transaction_id))
+                cur.execute(sql, params)
             conn.commit()
 
     # ---- Users ----
@@ -505,7 +474,6 @@ class Database:
             conn.commit()
 
     def delete_user(self, user_id: int) -> None:
-        """Permanently delete a user from the database"""
         sql = "DELETE FROM users WHERE id = %s;"
         with get_connection() as conn:
             with conn.cursor() as cur:
@@ -549,7 +517,7 @@ class Database:
                 cur.execute(sql, (username,))
             conn.commit()
 
-    # ---- User Preferences (new) ----
+    # ---- User Preferences ----
     def get_user_preferences(self, username: str) -> Dict[str, Any]:
         sql = "SELECT preferences FROM users WHERE username = %s;"
         with get_connection() as conn:
@@ -565,7 +533,7 @@ class Database:
                 cur.execute(sql, (json.dumps(preferences), username))
             conn.commit()
 
-    # ---- API Keys (new) ----
+    # ---- API Keys ----
     def get_api_keys_for_user(self, user_id: int) -> List[Dict[str, Any]]:
         sql = """
             SELECT id, name, prefix, last_used, expires_at, revoked, created_at
@@ -616,7 +584,7 @@ class Database:
                 cur.execute(sql, (key_id,))
             conn.commit()
 
-    # ---- System Settings (new) ----
+    # ---- System Settings ----
     def get_system_settings(self) -> Dict[str, Any]:
         sql = "SELECT key, value FROM system_settings;"
         with get_connection() as conn:
@@ -785,18 +753,11 @@ class Database:
     def add_totp_columns(self) -> None:
         with get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT column_name FROM information_schema.columns
-                    WHERE table_name='users' AND column_name='totp_secret';
-                """)
+                cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='totp_secret';")
                 if not cur.fetchone():
                     cur.execute("ALTER TABLE users ADD COLUMN totp_secret TEXT;")
                     logger.info("Added totp_secret column.")
-                
-                cur.execute("""
-                    SELECT column_name FROM information_schema.columns
-                    WHERE table_name='users' AND column_name='totp_enabled';
-                """)
+                cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name='users' AND column_name='totp_enabled';")
                 if not cur.fetchone():
                     cur.execute("ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN DEFAULT FALSE;")
                     logger.info("Added totp_enabled column.")
@@ -845,25 +806,18 @@ class Database:
             with conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) FROM users")
                 total_users = cur.fetchone()[0]
-                
                 cur.execute("SELECT COUNT(*) FROM users WHERE status = 'active'")
                 active_users = cur.fetchone()[0]
-                
                 cur.execute("SELECT COUNT(*) FROM users WHERE status = 'pending'")
                 pending_users = cur.fetchone()[0]
-                
                 cur.execute("SELECT COUNT(*) FROM users WHERE status = 'blocked'")
                 blocked_users = cur.fetchone()[0]
-                
                 cur.execute("SELECT COUNT(*) FROM users WHERE status = 'rejected'")
                 rejected_users = cur.fetchone()[0]
-                
                 cur.execute("SELECT COUNT(*) FROM users WHERE role = 'admin'")
                 admin_users = cur.fetchone()[0]
-                
                 cur.execute("SELECT COUNT(*) FROM users WHERE totp_enabled = TRUE")
                 twofa_enabled = cur.fetchone()[0]
-                
         return {
             "total_users": total_users,
             "active_users": active_users,
@@ -906,7 +860,7 @@ class Database:
             with conn.cursor() as cur:
                 cur.execute(sql, (username, hours))
                 row = cur.fetchone()
-        return row[0] if row else 0
+        return row[0] if row else None
 
     def get_total_failed_logins_last_24h(self) -> int:
         sql = """
@@ -923,26 +877,21 @@ class Database:
     # ---- Cleanup ----
     def cleanup_old_logs(self, days: int = 30) -> Dict[str, int]:
         results = {}
-        
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM login_logs WHERE timestamp < NOW() - INTERVAL '%s days'", (days,))
                 results['login_logs'] = cur.rowcount
             conn.commit()
-        
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM user_activity WHERE timestamp < NOW() - INTERVAL '%s days'", (days,))
                 results['user_activity'] = cur.rowcount
             conn.commit()
-        
         results['refresh_tokens'] = self.cleanup_expired_refresh_tokens()
-        
         return results
 
-    # ---- Knowledge Base (NEW) ----
+    # ---- Knowledge Base ----
     def get_knowledge_base_entries(self, search: str = "", limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
-        """List knowledge base entries with optional search."""
         if search:
             sql = """
                 SELECT id, category, question, answer, usage_count, created_at, updated_at
@@ -968,7 +917,6 @@ class Database:
         return [dict(row) for row in rows]
 
     def count_knowledge_base_entries(self, search: str = "") -> int:
-        """Count total KB entries (with search)."""
         if search:
             sql = """
                 SELECT COUNT(*) FROM knowledge_base
@@ -1033,3 +981,21 @@ class Database:
             with conn.cursor() as cur:
                 cur.execute(sql, (entry_id,))
             conn.commit()
+
+
+    @contextmanager
+    def _get_cursor(self):
+        conn = self.pool.getconn()
+        try:
+            yield conn.cursor()
+        finally:
+            self.pool.putconn(conn)
+
+
+    @contextmanager
+    def _get_cursor(self):
+        conn = self.pool.getconn()
+        try:
+            yield conn.cursor()
+        finally:
+            self.pool.putconn(conn)
