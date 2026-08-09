@@ -22,11 +22,26 @@ jobs:
             git pull origin main
             sudo systemctl restart fraudguard.service
 
-            cd frontend
+            # Stop and remove old frontend container (if it exists)
+            docker stop fraudguard_frontend_1 2>/dev/null || true
+            docker rm fraudguard_frontend_1 2>/dev/null || true
+
+            # Ensure the Docker network exists (created by docker-compose)
+            docker network create fraudguard_default 2>/dev/null || true
+
+            # Build the frontend image with the correct API URL
             export VITE_API_BASE_URL="http://13.40.181.181:8000"
-            docker-compose stop frontend || true
-            docker-compose rm -f frontend || true
-            docker-compose build --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL frontend
-            docker-compose up -d frontend
+            docker build \
+              --build-arg VITE_API_BASE_URL=$VITE_API_BASE_URL \
+              -t fraudguard_frontend:latest \
+              -f Dockerfile.frontend .
+
+            # Run the frontend container
+            docker run -d \
+              --name fraudguard_frontend_1 \
+              --network fraudguard_default \
+              -p 80:80 \
+              --restart unless-stopped \
+              fraudguard_frontend:latest
           use_insecure_cipher: true
           fingerprint: ''
