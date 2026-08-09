@@ -2,7 +2,12 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import ThemeToggle from './ThemeToggle';
 
-export default function Navbar({ title, onRefresh }) {
+export default function Navbar({ 
+  title, 
+  onRefresh, 
+  mobileOpen, 
+  setMobileOpen 
+}) {
   const navigate = useNavigate();
 
   const logout = async () => {
@@ -15,9 +20,22 @@ export default function Navbar({ title, onRefresh }) {
     navigate('/login');
   };
 
+  // Toggle sidebar on mobile
+  const toggleSidebar = () => {
+    setMobileOpen(!mobileOpen);
+  };
+
   return (
     <header className="navbar">
       <div className="navbar-left">
+        {/* Hamburger button – visible only on mobile */}
+        <button 
+          className="sidebar-toggle" 
+          onClick={toggleSidebar}
+          aria-label="Toggle sidebar"
+        >
+          ☰
+        </button>
         <h1 className="page-title">{title}</h1>
         <span className="breadcrumb">FraudGuard / {title}</span>
       </div>

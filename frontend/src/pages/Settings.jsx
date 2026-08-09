@@ -8,10 +8,11 @@ import {
 import api from '../services/api';
 import StatusBadge from '../components/StatusBadge';
 import '../styles/settings.css';
-
 import { API_BASE_URL } from '../services/api';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Settings() {
+  const { isDarkMode } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState(null);
@@ -22,16 +23,12 @@ export default function Settings() {
   const [systemSettings, setSystemSettings] = useState({});
   const [message, setMessage] = useState(null);
   const [messageType, setMessageType] = useState('success');
-
-  // 2FA state (exactly as in the working minimal version)
   const [showModal, setShowModal] = useState(false);
   const [secret, setSecret] = useState('');
   const [code, setCode] = useState('');
   const [twofaLoading, setTwofaLoading] = useState(false);
   const [username, setUsername] = useState('user');
-  const [qrUrl, setQrUrl] = useState('');  // using the same name as minimal version
-
-  // Agent state
+  const [qrUrl, setQrUrl] = useState('');
   const [agentConfig, setAgentConfig] = useState({
     enabled: false,
     model: 'xgboost',
@@ -49,7 +46,6 @@ export default function Settings() {
     setTimeout(() => setMessage(null), 4000);
   };
 
-  // ---- Fetch data ----
   const fetchSettings = async () => {
     setLoading(true);
     try {
@@ -114,7 +110,7 @@ export default function Settings() {
     }
   };
 
-  // ---- 2FA (EXACTLY THE WORKING CODE FROM THE MINIMAL VERSION) ----
+  // ---- 2FA ----
   const start2faSetup = async () => {
     const token = getToken();
     if (!token || token.split('.').length !== 3) {
@@ -123,37 +119,21 @@ export default function Settings() {
       window.location.href = '/login';
       return;
     }
-
     setTwofaLoading(true);
     try {
-      console.log('🔄 Calling /settings/2fa/setup...');
       const res = await fetch(`${API_BASE_URL}/settings/2fa/setup`, {
         method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`, 
-          'Content-Type': 'application/json' 
-        },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || 'Setup failed');
-      }
-      console.log('✅ 2FA setup data:', data);
-
+      if (!res.ok) throw new Error(data.detail || 'Setup failed');
       setSecret(data.secret);
       const user = JSON.parse(localStorage.getItem('user') || '{"username":"user"}');
       setUsername(user.username || 'user');
-
-      // ✅ Generate QR using external API (exactly as in minimal version)
       const qr = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`otpauth://totp/FraudGuard:${user.username}?secret=${data.secret}&issuer=FraudGuard`)}`;
       setQrUrl(qr);
-      console.log('🖼️ QR URL:', qr);
-
-      // ✅ FORCE OPEN MODAL (exactly as in minimal version)
       setShowModal(true);
-      console.log('🟢 Modal state set to true');
     } catch (err) {
-      console.error('❌ 2FA setup error:', err);
       showMessage('Error: ' + err.message, 'error');
     } finally {
       setTwofaLoading(false);
@@ -167,10 +147,7 @@ export default function Settings() {
       const token = getToken();
       const res = await fetch(`${API_BASE_URL}/settings/2fa/verify-setup`, {
         method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`, 
-          'Content-Type': 'application/json' 
-        },
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
       });
       if (!res.ok) throw new Error('Invalid code');
@@ -281,7 +258,7 @@ export default function Settings() {
       </div>
 
       <div className="settings-content">
-        {/* PROFILE TAB */}
+        {/* ─── PROFILE TAB ─── */}
         {activeTab === 'profile' && (
           <div className="settings-section">
             <h3>Profile & Preferences</h3>
@@ -292,23 +269,6 @@ export default function Settings() {
             <div className="settings-field">
               <label>Role</label>
               <span><StatusBadge status={settings?.user?.role} /></span>
-            </div>
-            <div className="settings-field">
-              <label>Theme</label>
-              <div className="settings-radio-group">
-                {['dark', 'light'].map(t => (
-                  <label key={t} className="settings-radio">
-                    <input
-                      type="radio"
-                      name="theme"
-                      value={t}
-                      checked={prefs.theme === t}
-                      onChange={() => setPrefs({ ...prefs, theme: t })}
-                    />
-                    <FontAwesomeIcon icon={t === 'dark' ? faMoon : faSun} /> {t.charAt(0).toUpperCase() + t.slice(1)}
-                  </label>
-                ))}
-              </div>
             </div>
             <div className="settings-field">
               <label>Notifications</label>
@@ -340,10 +300,13 @@ export default function Settings() {
             <button className="btn-primary" onClick={updatePreferences}>
               <FontAwesomeIcon icon={faSave} /> Save Preferences
             </button>
+            <p className="settings-hint" style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Theme switching is available in the top‑right corner.
+            </p>
           </div>
         )}
 
-        {/* SECURITY TAB */}
+        {/* ─── SECURITY TAB ─── */}
         {activeTab === 'security' && (
           <div className="settings-section">
             <h3>Security</h3>
@@ -391,7 +354,7 @@ export default function Settings() {
           </div>
         )}
 
-        {/* API KEYS TAB */}
+        {/* ─── API KEYS TAB ─── */}
         {activeTab === 'api-keys' && (
           <div className="settings-section">
             <h3>API Keys</h3>
@@ -436,7 +399,7 @@ export default function Settings() {
           </div>
         )}
 
-        {/* SYSTEM TAB */}
+        {/* ─── SYSTEM TAB ─── */}
         {activeTab === 'system' && settings?.user?.role === 'admin' && (
           <div className="settings-section">
             <h3>System Configuration</h3>
@@ -479,7 +442,7 @@ export default function Settings() {
           </div>
         )}
 
-        {/* AGENT AI TAB */}
+        {/* ─── AGENT AI TAB ─── */}
         {activeTab === 'agent' && settings?.user?.role === 'admin' && (
           <div className="settings-section">
             <h3>AI Agent Configuration</h3>
@@ -514,15 +477,7 @@ export default function Settings() {
               <select
                 value={agentConfig.model || 'xgboost'}
                 onChange={(e) => updateAgentConfig('model', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.5rem 0.7rem',
-                  background: 'var(--bg)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '6px',
-                  color: 'var(--text)',
-                  fontSize: '0.9rem'
-                }}
+                className="settings-select"
               >
                 <option value="xgboost">XGBoost</option>
                 <option value="random_forest">Random Forest</option>
@@ -582,12 +537,7 @@ export default function Settings() {
             </div>
 
             <div className="settings-field" style={{ marginTop: '1rem' }}>
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  alert('Agent run triggered manually.');
-                }}
-              >
+              <button className="btn-primary" onClick={() => alert('Agent run triggered manually.')}>
                 <FontAwesomeIcon icon={faChartLine} /> Run Agent Now
               </button>
             </div>
@@ -595,66 +545,66 @@ export default function Settings() {
         )}
       </div>
 
-      {/* 2FA MODAL – using the working JSX from minimal version */}
+      {/* ─── 2FA MODAL ─── (theme‑aware) */}
       {showModal && (
         <div
+          className="modal-overlay open"
+          onClick={closeModal}
           style={{
             position: 'fixed',
             top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0,0,0,0.8)',
+            background: isDarkMode ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(6px)',
             zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            padding: '1rem'
           }}
-          onClick={closeModal}
         >
           <div
-            style={{
-              background: '#1e1e2f',
-              padding: '2rem',
-              borderRadius: '12px',
-              maxWidth: '450px',
-              width: '90%',
-              border: '1px solid #2d2d44',
-            }}
+            className="modal-card"
             onClick={(e) => e.stopPropagation()}
+            style={{
+              background: isDarkMode ? '#1e1e2f' : '#ffffff',
+              padding: '2rem',
+              borderRadius: '16px',
+              maxWidth: '450px',
+              width: '100%',
+              border: isDarkMode ? '1px solid #2d2d44' : '1px solid #ddd',
+              boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+            }}
           >
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              marginBottom: '1rem' 
-            }}>
-              <h3 style={{ margin: 0, color: '#fff' }}>2FA Setup</h3>
-              <button 
-                onClick={closeModal} 
-                style={{ 
-                  background: 'none', 
-                  border: 'none', 
-                  color: '#aaa', 
-                  fontSize: '1.2rem', 
-                  cursor: 'pointer' 
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, color: isDarkMode ? '#fff' : '#1a1a2e' }}>2FA Setup</h3>
+              <button
+                onClick={closeModal}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: isDarkMode ? '#aaa' : '#666',
+                  fontSize: '1.2rem',
+                  cursor: 'pointer'
                 }}
               >
                 <FontAwesomeIcon icon={faTimes} />
               </button>
             </div>
-            
-            <p style={{ color: '#ccc' }}>Scan this QR code with your authenticator app:</p>
-            
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
+
+            <p style={{ color: isDarkMode ? '#ccc' : '#555' }}>Scan this QR code with your authenticator app:</p>
+
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
               padding: '1rem',
-              background: 'white',
+              background: isDarkMode ? '#0b0f1c' : '#f8f9fa',
               borderRadius: '8px',
               margin: '1rem 0'
             }}>
               {qrUrl ? (
-                <img 
-                  src={qrUrl} 
-                  alt="QR Code" 
+                <img
+                  src={qrUrl}
+                  alt="QR Code"
                   style={{ width: '200px', height: '200px' }}
                   onError={(e) => {
                     console.error('❌ QR image failed to load');
@@ -665,23 +615,23 @@ export default function Settings() {
               ) : (
                 <p style={{ color: 'red' }}>No QR URL set</p>
               )}
-              <div id="secret-fallback" style={{ display: 'none', color: '#fff' }}>
+              <div id="secret-fallback" style={{ display: 'none', color: isDarkMode ? '#fff' : '#1a1a2e' }}>
                 <p>QR generation failed. Enter secret manually:</p>
-                <code style={{ background: '#2d2d44', padding: '0.3rem 0.6rem', borderRadius: '4px' }}>{secret}</code>
+                <code style={{ background: isDarkMode ? '#2d2d44' : '#e9ecef', padding: '0.3rem 0.6rem', borderRadius: '4px' }}>{secret}</code>
               </div>
             </div>
-            
-            <p style={{ color: '#888', fontSize: '0.9rem' }}>
-              Or enter this secret manually: <code style={{ 
-                background: '#2d2d44', 
-                padding: '0.2rem 0.5rem', 
+
+            <p style={{ color: isDarkMode ? '#888' : '#666', fontSize: '0.9rem' }}>
+              Or enter this secret manually: <code style={{
+                background: isDarkMode ? '#2d2d44' : '#e9ecef',
+                padding: '0.2rem 0.5rem',
                 borderRadius: '4px',
-                color: '#fff'
+                color: isDarkMode ? '#fff' : '#1a1a2e'
               }}>{secret}</code>
             </p>
 
             <div style={{ marginTop: '1rem' }}>
-              <label style={{ color: '#ccc', display: 'block', marginBottom: '0.3rem' }}>
+              <label style={{ color: isDarkMode ? '#ccc' : '#555', display: 'block', marginBottom: '0.3rem' }}>
                 Enter 6-digit code
               </label>
               <input
@@ -690,30 +640,30 @@ export default function Settings() {
                 placeholder="123456"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                style={{ 
-                  width: '100%', 
-                  padding: '0.5rem', 
-                  background: '#14141e', 
-                  border: '1px solid #2d2d44', 
-                  borderRadius: '6px', 
-                  color: '#fff',
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  background: isDarkMode ? '#14141e' : '#ffffff',
+                  border: isDarkMode ? '1px solid #2d2d44' : '1px solid #ccc',
+                  borderRadius: '6px',
+                  color: isDarkMode ? '#fff' : '#1a1a2e',
                   fontSize: '1rem'
                 }}
               />
             </div>
-            
+
             <button
               onClick={verify2fa}
               disabled={twofaLoading || !code}
-              style={{ 
-                width: '100%', 
-                padding: '0.7rem', 
-                marginTop: '1rem', 
-                background: code ? '#10b981' : '#374151', 
-                border: 'none', 
-                borderRadius: '6px', 
-                color: '#fff', 
-                fontWeight: '600', 
+              style={{
+                width: '100%',
+                padding: '0.7rem',
+                marginTop: '1rem',
+                background: code ? '#10b981' : '#374151',
+                border: 'none',
+                borderRadius: '6px',
+                color: '#fff',
+                fontWeight: '600',
                 cursor: code ? 'pointer' : 'not-allowed'
               }}
             >

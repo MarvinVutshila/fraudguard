@@ -188,49 +188,49 @@ export default function Dashboard() {
   const avgLatency = monitoring?.avg_latency || 0;
 
   return (
-    <div className="dashboard" style={{ maxWidth: '1400px', margin: '0 auto' }}>
+    <div className="dashboard" style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 0.5rem' }}>
 
       {/* ─── Header ────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.5rem'
+        marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem'
       }}>
         <div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h1 style={{ fontSize: 'clamp(1.1rem, 3vw, 1.4rem)', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <FiShield size={22} style={{ color: 'var(--accent)' }} /> Live Feed
           </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '2px' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: 'clamp(0.7rem, 1.5vw, 0.85rem)', marginTop: '2px' }}>
             Updated {formatDistanceToNow(lastUpdated)} ago · {totalTransactions} total transactions
           </p>
         </div>
-        <button className="btn-secondary" onClick={fetchData} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <button className="btn-secondary" onClick={fetchData} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}>
           <FontAwesomeIcon icon={FiRefreshCw} className={loading ? 'spinning' : ''} /> Refresh
         </button>
       </div>
 
       {/* ─── System Health Bar ──────────────────────────────────────── */}
       <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-        gap: '0.8rem', marginBottom: '1.5rem'
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+        gap: '0.6rem', marginBottom: '1rem'
       }}>
         {[
-          { label: 'System Status', value: errorRate < 5 && avgLatency < 200 ? 'Operational' : 'Degraded', icon: FiCheckCircle, color: errorRate < 5 ? '#10b981' : '#f59e0b' },
-          { label: 'Avg Latency', value: `${avgLatency.toFixed(1)}ms`, icon: FiActivity, color: '#3b82f6' },
-          { label: 'Error Rate', value: `${errorRate.toFixed(1)}%`, icon: FiAlertTriangle, color: errorRate < 5 ? '#10b981' : '#ef4444' },
+          { label: 'Status', value: errorRate < 5 && avgLatency < 200 ? 'Operational' : 'Degraded', icon: FiCheckCircle, color: errorRate < 5 ? '#10b981' : '#f59e0b' },
+          { label: 'Latency', value: `${avgLatency.toFixed(1)}ms`, icon: FiActivity, color: '#3b82f6' },
+          { label: 'Errors', value: `${errorRate.toFixed(1)}%`, icon: FiAlertTriangle, color: errorRate < 5 ? '#10b981' : '#ef4444' },
           { label: 'CPU', value: `${health.cpu_percent.toFixed(0)}%`, icon: FiCpu, color: health.cpu_percent < 70 ? '#10b981' : '#ef4444' },
           { label: 'Memory', value: `${memoryPercent.toFixed(0)}%`, icon: FiHardDrive, color: memoryPercent < 80 ? '#10b981' : '#ef4444' },
-          { label: 'DB Connections', value: health.db_connections, icon: FiDatabase, color: '#8b5cf6' },
+          { label: 'DB', value: health.db_connections, icon: FiDatabase, color: '#8b5cf6' },
         ].map((item) => (
           <div key={item.label} style={{
             background: 'var(--surface)',
             border: `1px solid ${item.color}33`,
-            borderRadius: '10px', padding: '0.8rem 1rem',
-            display: 'flex', alignItems: 'center', gap: '0.8rem'
+            borderRadius: '8px', padding: '0.5rem 0.7rem',
+            display: 'flex', alignItems: 'center', gap: '0.5rem'
           }}>
-            <div style={{ color: item.color, fontSize: '1.2rem' }}><FontAwesomeIcon icon={item.icon} /></div>
+            <div style={{ color: item.color, fontSize: '1rem' }}><FontAwesomeIcon icon={item.icon} /></div>
             <div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</div>
-              <div style={{ fontWeight: 700, fontSize: '1rem' }}>{item.value}</div>
+              <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{item.label}</div>
+              <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{item.value}</div>
             </div>
           </div>
         ))}
@@ -238,27 +238,26 @@ export default function Dashboard() {
 
       {/* ─── KPI Cards ──────────────────────────────────────────────── */}
       <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '1rem', marginBottom: '1.5rem'
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+        gap: '0.8rem', marginBottom: '1rem'
       }}>
         {[
-          { label: "Today's Transactions", value: todayTxs.length, sub: `of ${totalTransactions} total`, icon: FiDollarSign, color: '#3b82f6' },
-          { label: 'Blocked', value: blocked, sub: totalTransactions ? `${((blocked/totalTransactions)*100).toFixed(1)}% fraud rate` : '0%', icon: FiXCircle, color: '#ef4444' },
-          { label: 'Pending Review', value: review, sub: 'awaiting human decision', icon: FiAlertTriangle, color: '#f59e0b' },
-          { label: 'Avg Risk Score', value: avgRisk.toFixed(4), sub: 'mean fraud probability', icon: FiBarChart2, color: '#8b5cf6' },
+          { label: "Today's Txs", value: todayTxs.length, sub: `of ${totalTransactions} total`, icon: FiDollarSign, color: '#3b82f6' },
+          { label: 'Blocked', value: blocked, sub: totalTransactions ? `${((blocked/totalTransactions)*100).toFixed(1)}%` : '0%', icon: FiXCircle, color: '#ef4444' },
+          { label: 'Pending Review', value: review, sub: 'awaiting', icon: FiAlertTriangle, color: '#f59e0b' },
+          { label: 'Avg Risk', value: avgRisk.toFixed(4), sub: 'mean prob', icon: FiBarChart2, color: '#8b5cf6' },
         ].map((k) => (
           <div key={k.label} style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: '12px', padding: '1.2rem 1.5rem',
-            display: 'flex', alignItems: 'center', gap: '1rem',
-            transition: 'border-color 0.2s'
+            borderRadius: '10px', padding: '0.8rem 1rem',
+            display: 'flex', alignItems: 'center', gap: '0.8rem'
           }}>
-            <div style={{ color: k.color, fontSize: '1.6rem' }}><FontAwesomeIcon icon={k.icon} /></div>
+            <div style={{ color: k.color, fontSize: '1.4rem' }}><FontAwesomeIcon icon={k.icon} /></div>
             <div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 700, lineHeight: 1.2 }}>{k.value}</div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{k.label}</div>
-              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{k.sub}</div>
+              <div style={{ fontSize: 'clamp(1.2rem, 2.5vw, 1.8rem)', fontWeight: 700, lineHeight: 1.2 }}>{k.value}</div>
+              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{k.label}</div>
+              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{k.sub}</div>
             </div>
           </div>
         ))}
@@ -266,36 +265,36 @@ export default function Dashboard() {
 
       {/* ─── Charts ──────────────────────────────────────────────────── */}
       <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr',
-        gap: '1rem', marginBottom: '1.5rem'
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: '0.8rem', marginBottom: '1rem'
       }}>
-        <div className="chart-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.2rem' }}>
-          <div className="chart-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span className="chart-title" style={{ fontWeight: 600, fontSize: '0.85rem' }}>Risk Distribution</span>
+        <div className="chart-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '0.8rem' }}>
+          <div className="chart-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+            <span className="chart-title" style={{ fontWeight: 600, fontSize: '0.75rem' }}>Risk Distribution</span>
           </div>
-          <div className="chart-container" style={{ height: '150px' }}>
+          <div className="chart-container" style={{ height: '120px' }}>
             <Bar data={riskChartData} options={barOptions} />
           </div>
         </div>
-        <div className="chart-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.2rem' }}>
-          <div className="chart-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span className="chart-title" style={{ fontWeight: 600, fontSize: '0.85rem' }}>Decision Split</span>
+        <div className="chart-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '0.8rem' }}>
+          <div className="chart-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+            <span className="chart-title" style={{ fontWeight: 600, fontSize: '0.75rem' }}>Decision Split</span>
           </div>
-          <div className="chart-container doughnut" style={{ height: '130px' }}>
+          <div className="chart-container doughnut" style={{ height: '110px' }}>
             <Doughnut data={decChartData} options={doughnutOptions} />
           </div>
-          <div className="doughnut-legend" style={{ display: 'flex', gap: '0.8rem', justifyContent: 'center', marginTop: '0.3rem', fontSize: '0.7rem' }}>
-            <div><span className="dot" style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '4px' }}></span> Approve: {decCounts.APPROVE}</div>
-            <div><span className="dot" style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '4px' }}></span> Block: {decCounts.BLOCK}</div>
-            <div><span className="dot" style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#f59e0b', marginRight: '4px' }}></span> Review: {decCounts.REVIEW}</div>
+          <div className="doughnut-legend" style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.2rem', fontSize: '0.6rem' }}>
+            <div><span className="dot" style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', marginRight: '3px' }}></span> {decCounts.APPROVE}</div>
+            <div><span className="dot" style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', marginRight: '3px' }}></span> {decCounts.BLOCK}</div>
+            <div><span className="dot" style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', marginRight: '3px' }}></span> {decCounts.REVIEW}</div>
           </div>
         </div>
-        <div className="chart-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '1.2rem' }}>
-          <div className="chart-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span className="chart-title" style={{ fontWeight: 600, fontSize: '0.85rem' }}>Probability Trend</span>
-            <span className="chart-sub" style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Last 30</span>
+        <div className="chart-card" style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '10px', padding: '0.8rem' }}>
+          <div className="chart-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
+            <span className="chart-title" style={{ fontWeight: 600, fontSize: '0.75rem' }}>Probability Trend</span>
+            <span className="chart-sub" style={{ fontSize: '0.55rem', color: 'var(--text-muted)' }}>Last 30</span>
           </div>
-          <div className="chart-container" style={{ height: '150px' }}>
+          <div className="chart-container" style={{ height: '120px' }}>
             <Line data={trendData} options={lineOptions} />
           </div>
         </div>
@@ -306,20 +305,20 @@ export default function Dashboard() {
         <div style={{
           background: 'var(--surface)',
           border: '1px solid var(--border)',
-          borderRadius: '12px', padding: '0.8rem 1.2rem',
-          marginBottom: '1.5rem',
-          display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1.5rem'
+          borderRadius: '10px', padding: '0.5rem 1rem',
+          marginBottom: '1rem',
+          display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1rem'
         }}>
-          <span style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--text-muted)' }}>🤖 Model</span>
+          <span style={{ fontWeight: 600, fontSize: '0.7rem', color: 'var(--text-muted)' }}>🤖 Model</span>
           {[
             ['Accuracy', `${(modelInfo.metrics?.accuracy || 0) * 100}%`],
             ['F1', `${(modelInfo.metrics?.f1_score || 0) * 100}%`],
             ['Threshold', modelInfo.optimal_threshold?.toFixed(3) || '0.5'],
             ['Features', modelInfo.n_features || '—'],
           ].map(([k, v]) => (
-            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{k}</span>
-              <span style={{ fontWeight: 700, fontSize: '0.85rem', fontFamily: 'var(--mono)' }}>{v}</span>
+            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+              <span style={{ fontSize: '0.55rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{k}</span>
+              <span style={{ fontWeight: 700, fontSize: '0.75rem', fontFamily: 'var(--mono)' }}>{v}</span>
             </div>
           ))}
         </div>
@@ -329,77 +328,77 @@ export default function Dashboard() {
       <div className="transaction-table" style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
-        borderRadius: '12px', padding: '1.2rem'
+        borderRadius: '10px', padding: '0.8rem'
       }}>
-        <div className="table-header" style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
-          <div className="table-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>📡 Live Transactions</span>
-            <span className="table-sub" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Auto‑refreshes every 30s</span>
+        <div className="table-header" style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.5rem' }}>
+          <div className="table-title" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            <span style={{ fontWeight: 700, fontSize: '0.8rem' }}>📡 Live Transactions</span>
+            <span className="table-sub" style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>Auto‑refreshes</span>
           </div>
-          <div className="table-controls" style={{ display: 'flex', gap: '0.5rem' }}>
+          <div className="table-controls" style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
             <input
               type="text"
-              placeholder="Search by ID…"
+              placeholder="Search ID…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="theme-input"
-              style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.3rem 0.6rem', fontSize: '0.8rem', color: 'var(--text)' }}
+              style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.2rem 0.4rem', fontSize: '0.7rem', color: 'var(--text)', width: '100px' }}
             />
             <select
               value={decisionFilter}
               onChange={(e) => setDecisionFilter(e.target.value)}
               className="theme-select"
-              style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.3rem 0.6rem', fontSize: '0.8rem', color: 'var(--text)' }}
+              style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.2rem 0.4rem', fontSize: '0.7rem', color: 'var(--text)' }}
             >
-              <option value="">All Decisions</option>
+              <option value="">All</option>
               <option value="APPROVE">Approve</option>
               <option value="REVIEW">Review</option>
               <option value="BLOCK">Block</option>
             </select>
-            <button className="btn-secondary" onClick={fetchData} style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem' }}>↺ Refresh</button>
+            <button className="btn-secondary" onClick={fetchData} style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}>↺</button>
           </div>
         </div>
         <div className="table-scroll" style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.65rem' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                <th style={{ textAlign: 'left', padding: '0.6rem 0.5rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.6rem', textTransform: 'uppercase' }}>Transaction ID</th>
-                <th style={{ textAlign: 'left', padding: '0.6rem 0.5rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.6rem', textTransform: 'uppercase' }}>Amount</th>
-                <th style={{ textAlign: 'left', padding: '0.6rem 0.5rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.6rem', textTransform: 'uppercase' }}>Probability</th>
-                <th style={{ textAlign: 'left', padding: '0.6rem 0.5rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.6rem', textTransform: 'uppercase' }}>Decision</th>
-                <th style={{ textAlign: 'left', padding: '0.6rem 0.5rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.6rem', textTransform: 'uppercase' }}>Risk Level</th>
-                <th style={{ textAlign: 'left', padding: '0.6rem 0.5rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.6rem', textTransform: 'uppercase' }}>Effective</th>
-                <th style={{ textAlign: 'left', padding: '0.6rem 0.5rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.6rem', textTransform: 'uppercase' }}>Action</th>
+                <th style={{ textAlign: 'left', padding: '0.3rem 0.3rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.55rem', textTransform: 'uppercase' }}>ID</th>
+                <th style={{ textAlign: 'left', padding: '0.3rem 0.3rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.55rem', textTransform: 'uppercase' }}>Amount</th>
+                <th style={{ textAlign: 'left', padding: '0.3rem 0.3rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.55rem', textTransform: 'uppercase' }}>Prob</th>
+                <th style={{ textAlign: 'left', padding: '0.3rem 0.3rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.55rem', textTransform: 'uppercase' }}>Decision</th>
+                <th style={{ textAlign: 'left', padding: '0.3rem 0.3rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.55rem', textTransform: 'uppercase' }}>Risk</th>
+                <th style={{ textAlign: 'left', padding: '0.3rem 0.3rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.55rem', textTransform: 'uppercase' }}>Effective</th>
+                <th style={{ textAlign: 'left', padding: '0.3rem 0.3rem', color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.55rem', textTransform: 'uppercase' }}>Action</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="7" className="loading" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>Loading…</td></tr>
+                <tr><td colSpan="7" className="loading" style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan="7" className="empty" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>No transactions match.</td></tr>
+                <tr><td colSpan="7" className="empty" style={{ textAlign: 'center', padding: '1rem', color: 'var(--text-muted)' }}>No transactions.</td></tr>
               ) : (
                 filtered.map((tx, index) => {
                   const id = tx.transaction_id || tx.id || `tx-${index}`;
                   const effective = tx.overridden ? tx.effective_decision : tx.decision;
                   return (
                     <tr key={tx.id || `${tx.transaction_id}-${index}`} className={tx.risk_level === 'CRITICAL' ? 'critical' : ''} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td className="font-mono" style={{ fontFamily: 'var(--mono)', fontSize: '0.75rem', padding: '0.5rem' }}>{id}</td>
-                      <td style={{ fontWeight: 600, padding: '0.5rem' }}>${(tx.amount || 0).toFixed(2)}</td>
-                      <td className="font-mono" style={{ fontFamily: 'var(--mono)', fontSize: '0.75rem', padding: '0.5rem' }}>{(tx.probability || 0).toFixed(4)}</td>
-                      <td style={{ padding: '0.5rem' }}><span className={`badge decision ${tx.decision}`} style={{ padding: '0.1rem 0.5rem', borderRadius: '20px', fontSize: '0.6rem', fontWeight: 600 }}>{tx.decision}</span></td>
-                      <td style={{ padding: '0.5rem' }}><span className={`badge risk ${(tx.risk_level || '').toLowerCase()}`} style={{ padding: '0.1rem 0.5rem', borderRadius: '20px', fontSize: '0.6rem', fontWeight: 600 }}>{tx.risk_level || '—'}</span></td>
-                      <td style={{ padding: '0.5rem' }}>
+                      <td className="font-mono" style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', padding: '0.3rem' }}>{id}</td>
+                      <td style={{ fontWeight: 600, padding: '0.3rem' }}>${(tx.amount || 0).toFixed(2)}</td>
+                      <td className="font-mono" style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', padding: '0.3rem' }}>{(tx.probability || 0).toFixed(3)}</td>
+                      <td style={{ padding: '0.3rem' }}><span className={`badge decision ${tx.decision}`} style={{ padding: '0.1rem 0.3rem', borderRadius: '12px', fontSize: '0.5rem', fontWeight: 600 }}>{tx.decision}</span></td>
+                      <td style={{ padding: '0.3rem' }}><span className={`badge risk ${(tx.risk_level || '').toLowerCase()}`} style={{ padding: '0.1rem 0.3rem', borderRadius: '12px', fontSize: '0.5rem', fontWeight: 600 }}>{tx.risk_level || '—'}</span></td>
+                      <td style={{ padding: '0.3rem' }}>
                         {tx.overridden ? (
-                          <span className="badge decision overridden" style={{ padding: '0.1rem 0.5rem', borderRadius: '20px', fontSize: '0.6rem', fontWeight: 600, background: 'rgba(59,130,246,0.12)', color: '#3b82f6' }}>{effective} <span className="note" style={{ fontSize: '0.6rem' }}>(overridden)</span></span>
+                          <span className="badge decision overridden" style={{ padding: '0.1rem 0.3rem', borderRadius: '12px', fontSize: '0.5rem', fontWeight: 600, background: 'rgba(59,130,246,0.12)', color: '#3b82f6' }}>{effective}</span>
                         ) : (
-                          <span className={`badge decision ${tx.decision}`} style={{ padding: '0.1rem 0.5rem', borderRadius: '20px', fontSize: '0.6rem', fontWeight: 600 }}>{tx.decision}</span>
+                          <span className={`badge decision ${tx.decision}`} style={{ padding: '0.1rem 0.3rem', borderRadius: '12px', fontSize: '0.5rem', fontWeight: 600 }}>{tx.decision}</span>
                         )}
                       </td>
-                      <td style={{ padding: '0.5rem' }}>
+                      <td style={{ padding: '0.3rem' }}>
                         {tx.decision === 'REVIEW' && !tx.overridden ? (
-                          <button className="btn-override" onClick={() => alert(`Override ${id}`)} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.1rem 0.5rem', fontSize: '0.6rem', cursor: 'pointer' }}>⚖ Override</button>
+                          <button className="btn-override" onClick={() => alert(`Override ${id}`)} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.05rem 0.3rem', fontSize: '0.55rem', cursor: 'pointer' }}>⚖</button>
                         ) : tx.overridden ? (
-                          <span className="text-muted text-sm" style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>by {tx.overridden_by || 'analyst'}</span>
+                          <span className="text-muted text-sm" style={{ fontSize: '0.5rem', color: 'var(--text-muted)' }}>by {tx.overridden_by || 'analyst'}</span>
                         ) : null}
                       </td>
                     </tr>

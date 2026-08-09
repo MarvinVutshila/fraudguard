@@ -1,14 +1,18 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faArrowUp,
+  faArrowDown,
+} from '@fortawesome/free-solid-svg-icons';
 import './StatCard.css';
 
-export default function StatCard({ 
-  title, 
-  value, 
-  icon, 
-  color = 'blue', 
-  subtitle, 
+export default function StatCard({
+  title,
+  value,
+  icon,
+  color = 'blue',
+  subtitle,
   trend,
-  loading = false 
+  loading = false
 }) {
   const colorMap = {
     blue: { bg: 'rgba(59,130,246,0.08)', icon: '#3b82f6' },
@@ -47,7 +51,7 @@ export default function StatCard({
           {subtitle && <span className="stat-card-subtitle">{subtitle}</span>}
           {trend && (
             <div className={`stat-card-trend ${trend.isPositive ? 'positive' : 'negative'}`}>
-              <FontAwesomeIcon icon={trend.isPositive ? 'arrow-up' : 'arrow-down'} />
+              <FontAwesomeIcon icon={trend.isPositive ? faArrowUp : faArrowDown} />
               {trend.value}
             </div>
           )}

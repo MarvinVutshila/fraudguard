@@ -31,17 +31,11 @@ const navItems = [
   { to: '/predict', label: 'Predict', icon: '🔍' },
   { to: '/batch', label: 'Batch Analysis', icon: '📁' },
   { to: '/model', label: 'Model Info', icon: '🧠' },
-  
-  // 🔒 RESTRICTED TO ADMINS
   { to: '/monitoring', label: 'Monitoring', icon: '📊', admin: true },
   { to: '/api-logs', label: 'API Logs', icon: '📋', admin: true },
-  
   { to: '/assistant', label: 'AI Assistant', icon: '🤖' },
-  
-  // 🔒 RESTRICTED TO ADMINS
   { to: '/knowledge-base', label: 'Knowledge Base', icon: '📚', admin: true },
-
-  { to: '/settings', label: 'Settings', icon: '⚙️' },   
+  { to: '/settings', label: 'Settings', icon: '⚙️' },
   { to: '/admin', label: 'Admin Panel', icon: '🛡️', admin: true },
 ];
 
@@ -51,7 +45,10 @@ export default function Sidebar({ collapsed, setCollapsed }) {
   const [pendingCount, setPendingCount] = useState(0);
   const userRole = getUserRole();
 
-  // Fetch pending approval count from the new endpoint
+  // State for mobile drawer
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Fetch pending approval count
   useEffect(() => {
     const fetchPendingCount = async () => {
       try {
@@ -67,69 +64,80 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     return () => clearInterval(interval);
   }, []);
 
+  // Close drawer on navigation (mobile)
+  const handleNavClick = () => {
+    if (window.innerWidth < 768) {
+      setMobileOpen(false);
+    }
+  };
+
   const filteredNavItems = navItems.filter(
     (item) => !item.admin || (item.admin && userRole === 'admin')
   );
 
   return (
-    <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
-      <div className="sidebar-header">
-        <div className="brand">
-          <span className="shield">🛡️</span>
-          <span className="brand-name">FraudGuard</span>
-          <span className="version">v3</span>
-        </div>
-        <button className="collapse-btn" onClick={() => setCollapsed(!collapsed)}>
-          {collapsed ? '→' : '←'}
-        </button>
-      </div>
+    <>
+      {/* Overlay for mobile */}
+      {mobileOpen && (
+        <div className="sidebar-backdrop active" onClick={() => setMobileOpen(false)} />
+      )}
 
-      <nav className="sidebar-nav">
-        {filteredNavItems.map((item) => {
-          // Special handling for admin (use button to navigate)
-          if (item.to === '/admin') {
+      <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <div className="brand">
+            <span className="shield">🛡️</span>
+            <span className="brand-name">FraudGuard</span>
+            <span className="version">v3</span>
+          </div>
+          <button className="collapse-btn" onClick={() => setCollapsed(!collapsed)}>
+            {collapsed ? '→' : '←'}
+          </button>
+        </div>
+
+        <nav className="sidebar-nav">
+          {filteredNavItems.map((item) => {
+            if (item.to === '/admin') {
+              return (
+                <button
+                  key={item.to}
+                  className={`nav-item ${location.pathname === '/admin' ? 'active' : ''}`}
+                  onClick={() => { navigate('/admin'); handleNavClick(); }}
+                >
+                  <span className="icon">{item.icon}</span>
+                  <span className="label">{item.label}</span>
+                  {item.badge === 'live' && <span className="badge live">●</span>}
+                  {item.badge === 'count' && <span className="badge count">{pendingCount}</span>}
+                </button>
+              );
+            }
+
+            let badgeContent = null;
+            if (item.badge === 'live') badgeContent = <span className="badge live">●</span>;
+            else if (item.badge === 'count') badgeContent = <span className="badge count">{pendingCount}</span>;
+
             return (
-              <button
+              <NavLink
                 key={item.to}
-                className={`nav-item ${location.pathname === '/admin' ? 'active' : ''}`}
-                onClick={() => navigate('/admin')}
+                to={item.to}
+                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+                onClick={handleNavClick}
               >
                 <span className="icon">{item.icon}</span>
                 <span className="label">{item.label}</span>
-                {item.badge && item.badge === 'live' && <span className="badge live">●</span>}
-                {item.badge && item.badge === 'count' && <span className="badge count">{pendingCount}</span>}
-              </button>
+                {badgeContent}
+              </NavLink>
             );
-          }
+          })}
+        </nav>
 
-          // All other items use NavLink
-          let badgeContent = null;
-          if (item.badge === 'live') {
-            badgeContent = <span className="badge live">●</span>;
-          } else if (item.badge === 'count') {
-            badgeContent = <span className="badge count">{pendingCount}</span>;
-          }
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
-            >
-              <span className="icon">{item.icon}</span>
-              <span className="label">{item.label}</span>
-              {badgeContent}
-            </NavLink>
-          );
-        })}
-      </nav>
-
-      <div className="sidebar-footer">
-        <div className="status">
-          <span className="dot"></span>
-          <span>System Online</span>
+        <div className="sidebar-footer">
+          <div className="status">
+            <span className="dot"></span>
+            <span>System Online</span>
+          </div>
+          <div className="refresh-timer">Next refresh in 30s</div>
         </div>
-        <div className="refresh-timer">Next refresh in 30s</div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }

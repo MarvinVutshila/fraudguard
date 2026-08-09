@@ -102,9 +102,9 @@ export default function KnowledgeBase() {
             <tr>
               <th>Question</th>
               <th>Answer</th>
-              <th>Category</th>
-              <th>Usage</th>
-              <th>Created</th>
+              <th className="hide-on-mobile">Category</th>
+              <th className="hide-on-mobile">Usage</th>
+              <th className="hide-on-mobile">Created</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -118,9 +118,9 @@ export default function KnowledgeBase() {
                 <tr key={entry.id}>
                   <td className="kb-question">{entry.question}</td>
                   <td className="kb-answer">{truncate(entry.answer)}</td>
-                  <td><span className="kb-category">{entry.category}</span></td>
-                  <td>{entry.usage_count || 0}</td>
-                  <td>{new Date(entry.created_at).toLocaleDateString()}</td>
+                  <td className="hide-on-mobile"><span className="kb-category">{entry.category}</span></td>
+                  <td className="hide-on-mobile">{entry.usage_count || 0}</td>
+                  <td className="hide-on-mobile">{new Date(entry.created_at).toLocaleDateString()}</td>
                   <td>
                     <button className="btn-secondary" onClick={() => openEdit(entry)}>✎</button>
                     <button className="btn-danger-soft" onClick={() => handleDelete(entry.id)}>🗑</button>

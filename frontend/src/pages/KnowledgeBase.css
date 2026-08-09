@@ -17,6 +17,7 @@
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .kb-search {
@@ -26,6 +27,7 @@
   background: var(--surface2);
   color: var(--text);
   min-width: 250px;
+  font-size: 0.9rem;
 }
 
 .kb-search:focus {
@@ -37,13 +39,14 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .kb-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  min-width: 700px; /* ensures horizontal scroll on mobile */
 }
 
 .kb-table th {
@@ -60,6 +63,7 @@
 .kb-table td {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border);
+  vertical-align: middle;
 }
 
 .kb-table tr:hover {
@@ -89,6 +93,7 @@
   border-radius: 20px;
   font-size: 0.75rem;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .kb-footer {
@@ -96,6 +101,7 @@
   font-size: 0.85rem;
   color: var(--text-muted);
   border-top: 1px solid var(--border);
+  text-align: right;
 }
 
 .kb-table .btn-secondary,
@@ -103,6 +109,17 @@
   padding: 0.2rem 0.5rem;
   font-size: 0.8rem;
   margin: 0 0.2rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.kb-table .btn-secondary:hover {
+  background: var(--surface2);
+}
+.kb-table .btn-danger-soft:hover {
+  background: rgba(239,68,68,0.12);
+  color: var(--danger);
 }
 
 .loading-cell,
@@ -112,11 +129,10 @@
   color: var(--text-muted);
 }
 
-/* Modal overrides – reuse your existing modal classes */
+/* ─── Modal overrides ─── */
 .modal-card .field {
   margin-bottom: 1rem;
 }
-
 .modal-card .field label {
   display: block;
   font-size: 0.75rem;
@@ -124,7 +140,6 @@
   color: var(--text-muted);
   margin-bottom: 0.2rem;
 }
-
 .modal-card .field input,
 .modal-card .field textarea,
 .modal-card .field select {
@@ -136,14 +151,72 @@
   color: var(--text);
   font-size: 0.9rem;
 }
-
 .modal-card .field textarea {
   resize: vertical;
 }
-
 .modal-card .field input:focus,
 .modal-card .field textarea:focus,
 .modal-card .field select:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+/* ─── Mobile responsiveness ─── */
+@media (max-width: 768px) {
+  .kb-container {
+    padding: 1rem;
+  }
+  .kb-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .kb-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .kb-search {
+    width: 100%;
+    min-width: unset;
+  }
+  .kb-table {
+    font-size: 0.8rem;
+    min-width: 550px;
+  }
+  .kb-table th,
+  .kb-table td {
+    padding: 0.5rem 0.6rem;
+  }
+  /* hide less important columns on small screens */
+  .hide-on-mobile {
+    display: none !important;
+  }
+  .kb-answer {
+    max-width: 150px;
+  }
+  .kb-question {
+    max-width: 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  .kb-container {
+    padding: 0.5rem;
+  }
+  .kb-table {
+    font-size: 0.7rem;
+    min-width: 450px;
+  }
+  .kb-table th,
+  .kb-table td {
+    padding: 0.3rem 0.4rem;
+  }
+  .kb-answer {
+    max-width: 100px;
+  }
+  .kb-question {
+    max-width: 80px;
+  }
+  .modal-card {
+    max-width: 95vw;
+  }
 }

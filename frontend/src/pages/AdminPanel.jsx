@@ -29,30 +29,36 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-const fetchData = async () => {
-  setLoading(true);
-  setError(null);
-  try {
-    const [statsRes, usersRes, pendingRes, alertsRes, logsRes] = await Promise.all([
-      getUserStats(),
-      getUsers({ page: 1, page_size: 50 }),
-      getPendingUsers(),
-      getSecurityAlerts(),
-      getLoginLogs({ limit: 20 })
-    ]);
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [statsRes, usersRes, pendingRes, alertsRes, logsRes] = await Promise.all([
+        getUserStats(),
+        getUsers({ page: 1, page_size: 50 }),
+        getPendingUsers(),
+        getSecurityAlerts(),
+        getLoginLogs({ limit: 20 })
+      ]);
 
-    setStats(statsRes.data);
-    setUsers(usersRes.data?.users || []);
-    setPending(pendingRes.data?.pending || []);   // ✅ fixed
-    setAlerts(alertsRes.data?.alerts || []);
-    setLogs(logsRes.data?.logs || []);             // ✅ fixed
-  } catch (err) {
-    console.error('Failed to fetch admin data:', err);
-    setError('Failed to load admin data');
-  } finally {
-    setLoading(false);
-  }
-};
+      // Normalise stats to always have `pending_approvals`
+      const rawStats = statsRes.data || {};
+      setStats({
+        ...rawStats,
+        pending_approvals: rawStats.pending_users || rawStats.pending_approvals || 0,
+      });
+
+      setUsers(usersRes.data?.users || []);
+      setPending(pendingRes.data?.pending || []);
+      setAlerts(alertsRes.data?.alerts || []);
+      setLogs(logsRes.data?.logs || []);
+    } catch (err) {
+      console.error('Failed to fetch admin data:', err);
+      setError('Failed to load admin data');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -69,7 +75,6 @@ const fetchData = async () => {
     }
   };
 
-  // 🛡️ Protect admin users from being blocked
   const handleBlock = async (user) => {
     if (user.role === 'admin') {
       alert('⚠️ Admin users cannot be blocked for security reasons.');
@@ -109,14 +114,14 @@ const fetchData = async () => {
     }
   };
 
-const statItems = [
-  { key: 'total_users', label: 'Total Users', value: stats?.total_users || 0, icon: faUsers, color: 'blue' },
-  { key: 'active_users', label: 'Active Users', value: stats?.active_users || 0, icon: faUserCheck, color: 'green' },
-  { key: 'pending_approvals', label: 'Pending Approval', value: stats?.pending_approvals || 0, icon: faHourglassHalf, color: 'orange' },  // ✅ fixed
-  { key: 'blocked_users', label: 'Blocked', value: stats?.blocked_users || 0, icon: faLock, color: 'red' },
-  { key: 'high_risk_users', label: 'High Risk', value: stats?.high_risk_users || 0, icon: faFire, color: 'purple' },
-  { key: 'failed_logins_24h', label: 'Failed Logins (24h)', value: stats?.failed_logins_24h || 0, icon: faExclamationTriangle, color: 'red' },
-];
+  const statItems = [
+    { key: 'total_users', label: 'Total Users', value: stats?.total_users || 0, icon: faUsers, color: 'blue' },
+    { key: 'active_users', label: 'Active Users', value: stats?.active_users || 0, icon: faUserCheck, color: 'green' },
+    { key: 'pending_approvals', label: 'Pending Approval', value: stats?.pending_approvals || 0, icon: faHourglassHalf, color: 'orange' },
+    { key: 'blocked_users', label: 'Blocked', value: stats?.blocked_users || 0, icon: faLock, color: 'red' },
+    { key: 'high_risk_users', label: 'High Risk', value: stats?.high_risk_users || 0, icon: faFire, color: 'purple' },
+    { key: 'failed_logins_24h', label: 'Failed Logins (24h)', value: stats?.failed_logins_24h || 0, icon: faExclamationTriangle, color: 'red' },
+  ];
 
   if (loading && !stats) {
     return <div className="admin-loading">Loading Admin Panel...</div>;
@@ -199,7 +204,7 @@ const statItems = [
             </div>
             <div className="overview-card">
               <h4><FontAwesomeIcon icon={faHourglassHalf} /> Pending Approvals</h4>
-              <p>{stats?.pending_users || 0} pending registrations</p>
+              <p>{stats?.pending_approvals || 0} pending registrations</p>
               <button className="btn-secondary" onClick={() => setActiveTab('pending')}>Review Now →</button>
             </div>
             <div className="overview-card">
