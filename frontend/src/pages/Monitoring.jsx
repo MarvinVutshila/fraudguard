@@ -103,14 +103,17 @@ export default function Monitoring() {
     avg_latency = 0,
     top_endpoints = [],
     users = [],
-    system_health = { cpu_percent: 0, memory_used_mb: 0, memory_total_mb: 0, db_connections: 0 }
+    system_health = { cpu_percent: 0, memory_used_mb: 0, memory_total_mb: 0, db_connections: 0 },
+    auth_errors = 0,
+    server_errors = 0,
+    status = 'healthy'
   } = stats || {};
 
   const memoryPercent = system_health.memory_total_mb > 0 
     ? (system_health.memory_used_mb / system_health.memory_total_mb * 100)
     : 0;
 
-  const isHealthy = error_rate < 5 && avg_latency < 200 && system_health.cpu_percent < 70;
+  const isHealthy = server_errors === 0 && auth_errors < 5;
 
   // Chart data
   const topEndpointsData = {
@@ -124,13 +127,15 @@ export default function Monitoring() {
     }],
   };
 
+  // Use real error split if available
+  const successCount = total_requests_today - auth_errors - server_errors;
   const errorSplitData = {
     labels: ['Success (2xx)', 'Client Errors (4xx)', 'Server Errors (5xx)'],
     datasets: [{
       data: [
-        100 - error_rate,
-        error_rate * 0.8,
-        error_rate * 0.2
+        successCount > 0 ? successCount : 1,
+        auth_errors,
+        server_errors
       ],
       backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
       borderWidth: 0,
@@ -170,8 +175,8 @@ export default function Monitoring() {
         </div>
       </div>
 
-      {/* Health Status Bar */}
-      <div className="health-status-bar">
+      {/* Health Status Bar – now with separate indicators */}
+      <div className="health-status-bar" style={{display:'flex', flexWrap:'wrap', gap:'1rem', padding:'1rem', background:'var(--surface2)', borderRadius:'8px'}}>
         <div className="health-item">
           <div className="health-icon">
             <FontAwesomeIcon icon={isHealthy ? faCheckCircle : faTimesCircle} />
@@ -193,9 +198,18 @@ export default function Monitoring() {
         <div className="health-item">
           <div className="health-icon"><FontAwesomeIcon icon={faExclamationTriangle} /></div>
           <div>
-            <div className="health-label">Error Rate</div>
-            <div className={`health-value ${error_rate < 5 ? 'healthy' : 'degraded'}`}>
-              {error_rate.toFixed(1)}%
+            <div className="health-label">Server Errors (5xx)</div>
+            <div className={`health-value ${server_errors === 0 ? 'healthy' : 'degraded'}`}>
+              {server_errors}
+            </div>
+          </div>
+        </div>
+        <div className="health-item">
+          <div className="health-icon"><FontAwesomeIcon icon={faExclamationTriangle} /></div>
+          <div>
+            <div className="health-label">Auth Errors (4xx)</div>
+            <div className={`health-value ${auth_errors < 5 ? 'healthy' : 'degraded'}`}>
+              {auth_errors}
             </div>
           </div>
         </div>
@@ -225,7 +239,6 @@ export default function Monitoring() {
           icon={faClock}
           color="teal"
           subtitle="Average response time"
-          trend={avg_latency < 100 ? { isPositive: true, value: 'Fast' } : { isPositive: false, value: 'Slow' }}
         />
         <StatCard
           title="Error Rate"
@@ -244,16 +257,16 @@ export default function Monitoring() {
       </div>
 
       {/* Charts Row */}
-      <div className="charts-row">
+      <div className="charts-row" style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(300px, 1fr))', gap:'1rem'}}>
         <div className="chart-card">
           <h3>Top Endpoints</h3>
-          <div className="chart-wrapper">
+          <div className="chart-wrapper" style={{height:'200px'}}>
             <Bar data={topEndpointsData} options={{ responsive: true, maintainAspectRatio: false }} />
           </div>
         </div>
         <div className="chart-card">
           <h3>Request Status</h3>
-          <div className="chart-wrapper doughnut">
+          <div className="chart-wrapper doughnut" style={{height:'200px'}}>
             <Doughnut data={errorSplitData} options={{ responsive: true, maintainAspectRatio: false }} />
           </div>
           <div className="chart-legend">
@@ -264,14 +277,14 @@ export default function Monitoring() {
         </div>
         <div className="chart-card">
           <h3>Request Trend (Last 24h)</h3>
-          <div className="chart-wrapper">
+          <div className="chart-wrapper" style={{height:'200px'}}>
             <Line data={trendData} options={{ responsive: true, maintainAspectRatio: false }} />
           </div>
         </div>
       </div>
 
       {/* System Health */}
-      <div className="system-health-grid">
+      <div className="system-health-grid" style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:'1rem', marginTop:'1rem'}}>
         <div className="health-card">
           <div className="health-card-header">
             <FontAwesomeIcon icon={faMicrochip} />

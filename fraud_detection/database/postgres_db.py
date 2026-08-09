@@ -247,6 +247,29 @@ def create_tables() -> None:
                 logger.info("Added features column to transactions.")
         conn.commit()
 
+    # ---- Migration: UNIQUE constraint on transactions.transaction_id ----
+    # Run in its own connection/transaction so a failure here (e.g. existing
+    # duplicate transaction_id values) never rolls back the migrations above.
+    with get_connection() as conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT conname FROM pg_constraint WHERE conname = 'transactions_transaction_id_key';"
+                )
+                if not cur.fetchone():
+                    cur.execute(
+                        "ALTER TABLE transactions "
+                        "ADD CONSTRAINT transactions_transaction_id_key UNIQUE (transaction_id);"
+                    )
+                    logger.info("Added UNIQUE constraint on transactions.transaction_id")
+            conn.commit()
+        except Exception as exc:
+            conn.rollback()
+            logger.warning(
+                "Could not add UNIQUE constraint on transactions.transaction_id "
+                "(likely duplicate values already exist — dedupe first): %s", exc
+            )
+
     logger.info("Database tables and indexes verified")
 
 @contextmanager
@@ -286,6 +309,34 @@ class Database:
                 row_id = cur.fetchone()[0]
             conn.commit()
         return row_id
+
+    def insert_transaction_if_not_exists(self, transaction_id: str, amount: float,
+                                         probability: float, decision: str,
+                                         risk_level: str, timestamp: Optional[datetime] = None,
+                                         features: Optional[Dict[str, Any]] = None) -> Optional[int]:
+        """
+        Insert a transaction, skipping it if a row with the same transaction_id
+        already exists. Requires the UNIQUE constraint on transaction_id
+        (transactions_transaction_id_key) added in create_tables().
+
+        Returns the new row's id, or None if the transaction_id already existed
+        and the insert was skipped.
+        """
+        sql = """
+            INSERT INTO transactions (transaction_id, amount, probability,
+                                      decision, risk_level, timestamp, features)
+            VALUES (%s, %s, %s, %s, %s, COALESCE(%s, NOW()), %s)
+            ON CONFLICT (transaction_id) DO NOTHING
+            RETURNING id;
+        """
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, (transaction_id, amount, probability,
+                                  decision, risk_level, timestamp,
+                                  json.dumps(features) if features else None))
+                row = cur.fetchone()
+            conn.commit()
+        return row[0] if row else None
 
     def fetch_history(self, limit: int, offset: int,
                       decision_filter: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -343,7 +394,6 @@ class Database:
                 row = cur.fetchone()
         return dict(row) if row else None
 
-    # ✅ Corrected: no new_probability
     def set_override(self, transaction_id: str, original_decision: str,
                      new_decision: str, overridden_by: str, reason: str) -> None:
         sql = """
@@ -384,7 +434,6 @@ class Database:
                 rows = cur.fetchall()
         return [dict(row) for row in rows]
 
-    # ✅ Corrected: accepts new_probability
     def update_transaction_decision(self, transaction_id: str, decision: str, risk_level: str, new_probability: Optional[float] = None) -> None:
         if new_probability is not None:
             sql = """
@@ -404,6 +453,30 @@ class Database:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
             conn.commit()
+
+    # ---- Review Queue ----
+    def get_pending_review_count(self) -> int:
+        """
+        Count transactions that are still awaiting human review: decision is
+        'REVIEW' and no analyst override has been recorded for them yet.
+
+        Note: the transactions table has no `overridden` column — "not
+        overridden" is derived here as "no matching row in
+        transaction_overrides".
+        """
+        sql = """
+            SELECT COUNT(*)
+            FROM transactions t
+            WHERE t.decision = 'REVIEW'
+              AND NOT EXISTS (
+                  SELECT 1 FROM transaction_overrides o
+                  WHERE o.transaction_id = t.transaction_id
+              );
+        """
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql)
+                return cur.fetchone()[0]
 
     # ---- Users ----
     def create_user(self, username: str, password: str,
@@ -982,20 +1055,16 @@ class Database:
                 cur.execute(sql, (entry_id,))
             conn.commit()
 
-
     @contextmanager
     def _get_cursor(self):
-        conn = self.pool.getconn()
-        try:
-            yield conn.cursor()
-        finally:
-            self.pool.putconn(conn)
-
-
-    @contextmanager
-    def _get_cursor(self):
-        conn = self.pool.getconn()
-        try:
-            yield conn.cursor()
-        finally:
-            self.pool.putconn(conn)
+        """
+        Convenience helper that yields a cursor from the shared pool.
+        Uses the module-level pool (get_connection/_pool) rather than a
+        non-existent `self.pool` attribute — the Database class never sets
+        `self.pool`, so the original version of this method would have
+        raised AttributeError the moment it was called.
+        """
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                yield cur
+            conn.commit()

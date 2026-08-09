@@ -10,19 +10,20 @@ export default function ModelInfo() {
   const [uploading, setUploading] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
-const fetchInfo = async () => {
-  try {
-    const res = await api.get('/model/info', {
-      params: { _: Date.now() }   // <-- forces cache bust
-    });
-    console.log('📊 Model Info Response:', res.data);
-    setInfo(res.data);
-  } catch (err) {
-    console.error('Failed to fetch model info:', err);
-  } finally {
-    setLoading(false);
-  }
-};
+  const fetchInfo = async () => {
+    try {
+      const res = await api.get('/model/info', {
+        params: { _: Date.now() }   // <-- forces cache bust
+      });
+      console.log('📊 Model Info Response:', res.data);
+      setInfo(res.data);
+    } catch (err) {
+      console.error('Failed to fetch model info:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchInfo();
     const onRefresh = () => fetchInfo();
@@ -51,7 +52,6 @@ const fetchInfo = async () => {
     setRetraining(true);
     setStatusMsg('Starting retraining...');
     try {
-      // 🔥 NEW: use the fresh endpoint
       await api.post('/model/retrain-now');
       pollRetrainStatus();
       const interval = setInterval(pollRetrainStatus, 3000);
@@ -94,9 +94,14 @@ const fetchInfo = async () => {
 
   const metrics = info.metrics || {};
   const featureList = info.feature_names || [];
+  const decisionPolicy = info.decision_policy || {
+    approve_threshold: 0.20,
+    block_threshold: 0.85,
+    description: 'APPROVE if probability < 0.20, REVIEW if 0.20–0.85, BLOCK if ≥ 0.85'
+  };
 
   return (
-    <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:'1rem'}}>
+    <div className="model-info-container" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:'1rem', padding:'1rem'}}>
       <div>
         <div className="card">
           <div className="card-header">
@@ -104,7 +109,7 @@ const fetchInfo = async () => {
               <div className="card-title">🧠 Model Information</div>
               <div className="card-sub">XGBoost Fraud Detection Engine</div>
             </div>
-            <div style={{display:'flex', gap:'8px'}}>
+            <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
               <button className="btn-secondary" onClick={fetchInfo}>↺ Refresh</button>
               <button 
                 className="btn-primary" 
@@ -119,9 +124,22 @@ const fetchInfo = async () => {
           <div>
             <div className="info-row"><span className="info-key">Model Type</span><span className="info-val">{info.model_type || 'XGBoost'}</span></div>
             <div className="info-row"><span className="info-key">Features</span><span className="info-val">{info.n_features || 30}</span></div>
-            <div className="info-row"><span className="info-key">Optimal Threshold</span><span className="info-val">{info.optimal_threshold || '0.5'}</span></div>
+            <div className="info-row"><span className="info-key">Optimal Threshold (Fraud Cutoff)</span><span className="info-val">{info.optimal_threshold || '0.5'}</span></div>
             <div className="info-row"><span className="info-key">Max Allowed Amount</span><span className="info-val">${(info.max_allowed_amount || 25000).toFixed(2)}</span></div>
             <div className="info-row"><span className="info-key">Model Version</span><span className="info-val">{info.version || 'v3.0'}</span></div>
+          </div>
+        </div>
+
+        {/* Decision Policy Section */}
+        <div className="card">
+          <div className="card-header">
+            <div className="card-title">📋 Decision Policy</div>
+          </div>
+          <div style={{display:'flex', flexDirection:'column', gap:'0.5rem'}}>
+            <div className="info-row"><span className="info-key">Approve (prob &lt; {decisionPolicy.approve_threshold})</span><span className="dec-badge APPROVE">APPROVE</span></div>
+            <div className="info-row"><span className="info-key">Review ({decisionPolicy.approve_threshold} – {decisionPolicy.block_threshold})</span><span className="dec-badge REVIEW">REVIEW</span></div>
+            <div className="info-row"><span className="info-key">Block (prob ≥ {decisionPolicy.block_threshold})</span><span className="dec-badge BLOCK">BLOCK</span></div>
+            <div className="info-row"><span className="info-key" style={{fontStyle:'italic'}}>Description</span><span className="info-val">{decisionPolicy.description}</span></div>
           </div>
         </div>
 
@@ -159,7 +177,7 @@ const fetchInfo = async () => {
           <div className="card-header">
             <div className="card-title">📁 Upload New Dataset</div>
           </div>
-          <div style={{display:'flex', gap:'8px', alignItems:'center'}}>
+          <div style={{display:'flex', gap:'8px', alignItems:'center', flexWrap:'wrap'}}>
             <input 
               type="file" 
               accept=".csv" 
@@ -199,12 +217,6 @@ const fetchInfo = async () => {
               <span className="feat-score">{(Math.random()*0.15).toFixed(3)}</span>
             </div>
           ))}
-        </div>
-        <div className="card">
-          <div className="card-title" style={{marginBottom:'1rem'}}>Decision Thresholds</div>
-          <div className="info-row"><span className="info-key">Approve (prob &lt; 0.20)</span><span className="dec-badge APPROVE">APPROVE</span></div>
-          <div className="info-row"><span className="info-key">Review (0.20–0.70)</span><span className="dec-badge REVIEW">REVIEW</span></div>
-          <div className="info-row"><span className="info-key">Block (prob ≥ 0.70)</span><span className="dec-badge BLOCK">BLOCK</span></div>
         </div>
       </div>
     </div>

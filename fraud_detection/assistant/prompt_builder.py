@@ -2,7 +2,6 @@ from typing import Dict, Any
 import json
 
 def build_prompt(query: str, data: Dict[str, Any], user: dict) -> str:
-    # Detect casual acknowledgements
     casual_phrases = ["thanks", "thank you", "okay", "ok", "got it", "👍", "cool", "great"]
     is_casual = any(phrase in query.lower() for phrase in casual_phrases)
 
@@ -22,15 +21,22 @@ FORMATTING RULES – FOLLOW THESE STRICTLY:
 - If a pre‑formatted markdown table is provided (e.g., `blocked_transactions_md` or `overrides_md`), **use that exact table** – do not rewrite it.
 - For transaction lists, use these column headings exactly: Transaction ID, Amount, Risk Score, Risk Level, Time.
 - For overrides, use: Transaction ID, Original, New Decision, Analyst, Reason, Timestamp.
+- For security summaries (login attempts), structure it as:
+  🔐 Authentication Security Summary
+  -----------------------------------
+  Total failed attempts (last 24h): X
+  Distinct users affected: X
+  Top offending IPs: (if available)
+  Risk assessment: Low / Medium / High
+  Recommendation: (actionable advice)
 - Keep explanations brief. Use bullet points for steps.
 - If data is missing, simply state "No data available".
 - Do not include extra vertical bars or symbols outside the table.
-- Keep the overall response professional and under 600 tokens.
+- Keep overall response professional and under 600 tokens.
 
 Now answer the user query using the data provided below.
 """
 
-    # Build knowledge section
     kb_entries = data.get("knowledge_base", [])
     kb_text = ""
     if kb_entries:
@@ -40,43 +46,51 @@ Now answer the user query using the data provided below.
     else:
         kb_text = "No relevant knowledge base entries found for this query."
 
-    # Prepare data text – if pre‑formatted tables exist, include them; otherwise include raw JSON.
     data_text = ""
     if not is_casual:
-        # Use pre‑formatted tables if available
+        # If we have login_security data, format it prominently
+        login_security = data.get("login_security")
+        if login_security:
+            summary = login_security
+            data_text += f"""🔐 AUTHENTICATION SECURITY SUMMARY
+-----------------------------------
+Total failed attempts (last 24h): {summary.get('total_failures_24h', 0)}
+Distinct users with failures: {len(summary.get('users_with_failures', []))}
+Risk assessment: {summary.get('analysis', 'Unknown')}
+
+Recent failed attempts (last 10):
+"""
+            for log in summary.get('recent_logs', [])[:10]:
+                data_text += f"- {log.get('timestamp')} | {log.get('username')} | IP: {log.get('ip')}\n"
+            data_text += "\n"
+
         blocked_md = data.get("blocked_transactions_md", "")
         overrides_md = data.get("overrides_md", "")
-        
-        # Build a clean summary from the structured data
-        summary_lines = []
+
         tx_summary = data.get("transaction_summary", {})
         if tx_summary:
-            summary_lines.append(f"Total transactions: {tx_summary.get('total', 0)}")
-            summary_lines.append(f"Today: {tx_summary.get('today', 0)}")
-            summary_lines.append(f"Approved: {tx_summary.get('decision_counts', {}).get('APPROVE', 0)}")
-            summary_lines.append(f"Blocked: {tx_summary.get('decision_counts', {}).get('BLOCK', 0)}")
-            summary_lines.append(f"Pending Review: {tx_summary.get('decision_counts', {}).get('REVIEW', 0)}")
-            summary_lines.append(f"Average Risk: {tx_summary.get('average_probability', 0):.2%}")
-            summary_lines.append(f"Average Amount: ${tx_summary.get('average_amount', 0):.2f}")
-        
-        summary_text = "\n".join(summary_lines)
-        
-        # Combine with pre‑formatted tables
-        data_text = f"SUMMARY:\n{summary_text}\n\n"
+            lines = []
+            lines.append(f"Total transactions: {tx_summary.get('total', 0)}")
+            lines.append(f"Today: {tx_summary.get('today', 0)}")
+            lines.append(f"Approved: {tx_summary.get('decision_counts', {}).get('APPROVE', 0)}")
+            lines.append(f"Blocked: {tx_summary.get('decision_counts', {}).get('BLOCK', 0)}")
+            lines.append(f"Pending Review: {tx_summary.get('decision_counts', {}).get('REVIEW', 0)}")
+            lines.append(f"Average Risk: {tx_summary.get('average_probability', 0):.2%}")
+            lines.append(f"Average Amount: ${tx_summary.get('average_amount', 0):.2f}")
+            data_text += "SUMMARY:\n" + "\n".join(lines) + "\n\n"
+
         if blocked_md:
             data_text += f"BLOCKED TRANSACTIONS:\n{blocked_md}\n"
         if overrides_md:
             data_text += f"RECENT OVERRIDES:\n{overrides_md}\n"
-        
-        # Add other metrics if needed
+
         if data.get("system_health"):
-            health = data["system_health"]
-            data_text += f"SYSTEM HEALTH: {health.get('status', 'Unknown')} (CPU: {health.get('cpu', 'N/A')}, Memory: {health.get('memory', 'N/A')})\n"
+            h = data["system_health"]
+            data_text += f"SYSTEM HEALTH: {h.get('status', 'Unknown')} (CPU: {h.get('cpu', 'N/A')}, Memory: {h.get('memory', 'N/A')})\n"
         if data.get("api_metrics"):
             api = data["api_metrics"]
             data_text += f"API: Latency {api.get('avg_latency_ms', 'N/A')} ms, Error Rate {api.get('error_rate', 'N/A')}%\n"
-        
-        # Also include raw JSON for any extra context (optional, but we can include it)
+
         data_text += "\nRAW DATA (for reference):\n" + json.dumps(data, indent=2, default=str, ensure_ascii=False)
 
     full_prompt = f"""{system}

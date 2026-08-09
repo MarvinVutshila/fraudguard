@@ -67,14 +67,14 @@ export default function BatchAnalysis() {
   };
 
   return (
-    <div className="card">
+    <div className="card" style={{padding:'1.5rem'}}>
       <div className="card-header">
         <div>
-          <div className="card-title">📁 Batch Transaction Analysis</div>
-          <div className="card-sub">Upload a CSV and score all transactions at once</div>
+          <div className="card-title" style={{fontSize:'1.5rem'}}>📁 Batch Transaction Analysis</div>
+          <div className="card-sub" style={{fontSize:'0.9rem', opacity:0.7}}>Upload a CSV and score all transactions at once</div>
         </div>
       </div>
-      <div className="drop-zone" onDrop={handleDrop} onDragOver={e => e.preventDefault()}>
+      <div className="drop-zone" onDrop={handleDrop} onDragOver={e => e.preventDefault()} style={{border:'2px dashed var(--border)', borderRadius:'8px', padding:'2rem', textAlign:'center', margin:'1rem 0'}}>
         <input type="file" ref={fileInput} accept=".csv" style={{display:'none'}} onChange={handleFileChange} />
         <div style={{fontSize:'2rem', marginBottom:'0.5rem'}}>📂</div>
         <div style={{fontWeight:'600'}}>{file ? file.name : 'Drop your CSV file here'}</div>
@@ -96,19 +96,19 @@ export default function BatchAnalysis() {
       )}
       {results.length > 0 && (
         <div style={{marginTop:'1rem'}}>
-          <div className="card-header">
+          <div className="card-header" style={{display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap'}}>
             <div>
               <div className="card-title">Batch Results</div>
               <div className="card-sub">{results.length} transactions · {results.filter(r => r.decision === 'BLOCK').length} blocked · {results.filter(r => r.decision === 'REVIEW').length} for review</div>
             </div>
-            <button className="btn-primary" onClick={exportResults}>⬇ Export CSV</button>
+            <button className="btn-primary" onClick={exportResults} style={{marginTop:'0.5rem'}}>⬇ Export CSV</button>
           </div>
-          <div className="table-scroll">
-            <table className="data-tbl">
+          <div className="table-scroll" style={{overflowX:'auto'}}>
+            <table className="data-tbl" style={{width:'100%', borderCollapse:'collapse'}}>
               <thead><tr><th>ID</th><th>Amount</th><th>Probability</th><th>Decision</th><th>Risk Level</th></tr></thead>
               <tbody>
                 {results.slice(0, 50).map((r, i) => (
-                  <tr key={i}>
+                  <tr key={i} style={{borderBottom:'1px solid var(--border)'}}>
                     <td className="font-mono">{r.transaction_id || 'N/A'}</td>
                     <td>${(r.amount || 0).toFixed(2)}</td>
                     <td>{((r.fraud_probability || 0)*100).toFixed(1)}%</td>

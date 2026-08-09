@@ -23,7 +23,6 @@ const SUGGESTIONS = [
   'Generate executive report',
 ];
 
-// New option for response style
 type ResponseStyle = 'concise' | 'detailed' | 'table';
 
 const Assistant: React.FC = () => {
@@ -67,7 +66,7 @@ const Assistant: React.FC = () => {
         body: JSON.stringify({
           message: text,
           conversation_id: conversationId,
-          style: responseStyle,   // <-- pass the selected style
+          style: responseStyle,
         }),
       });
 
@@ -150,42 +149,43 @@ const Assistant: React.FC = () => {
   };
 
   return (
-    <div className="assistant-container">
+    <div className="assistant-container" style={{display:'flex', flexDirection:'column', height:'100vh', maxWidth:'1200px', margin:'0 auto', padding:'1rem'}}>
       {/* Header with style dropdown */}
-      <div className="assistant-header">
-        <div className="brand-area">
-          <div className="avatar">🤖</div>
+      <div className="assistant-header" style={{display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', paddingBottom:'0.5rem', borderBottom:'1px solid var(--border)'}}>
+        <div className="brand-area" style={{display:'flex', alignItems:'center', gap:'0.5rem'}}>
+          <div className="avatar" style={{fontSize:'2rem'}}>🤖</div>
           <div>
-            <h2 className="brand-title">FraudGuard AI</h2>
-            <p className="brand-sub">Your intelligent fraud analyst assistant</p>
+            <h2 className="brand-title" style={{margin:0}}>FraudGuard AI</h2>
+            <p className="brand-sub" style={{margin:0, fontSize:'0.8rem', opacity:0.7}}>Your intelligent fraud analyst assistant</p>
           </div>
         </div>
-        <div className="header-controls">
+        <div className="header-controls" style={{display:'flex', gap:'0.5rem', alignItems:'center'}}>
           <select
             value={responseStyle}
             onChange={(e) => setResponseStyle(e.target.value as ResponseStyle)}
             className="style-select"
+            style={{padding:'0.3rem 0.6rem', borderRadius:'4px', border:'1px solid var(--border)'}}
           >
             <option value="concise">Concise</option>
             <option value="detailed">Detailed</option>
             <option value="table">Table‑focused</option>
           </select>
-          <button onClick={clearChat} className="btn-clear">
+          <button onClick={clearChat} className="btn-clear" style={{padding:'0.3rem 0.8rem', background:'transparent', border:'1px solid var(--border)', borderRadius:'4px'}}>
             Clear Chat
           </button>
         </div>
       </div>
 
-      {/* Chat area – unchanged */}
-      <div className="chat-messages">
+      {/* Chat area */}
+      <div className="chat-messages" style={{flex:1, overflowY:'auto', padding:'1rem 0'}}>
         {messages.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-icon">💬</div>
-            <p className="empty-greeting">Ask me anything about FraudGuard</p>
+          <div className="empty-state" style={{textAlign:'center', padding:'2rem'}}>
+            <div className="empty-icon" style={{fontSize:'3rem'}}>💬</div>
+            <p className="empty-greeting" style={{fontSize:'1.2rem'}}>Ask me anything about FraudGuard</p>
             <p className="empty-hint">Try one of these suggestions:</p>
-            <div className="suggestions">
+            <div className="suggestions" style={{display:'flex', flexWrap:'wrap', gap:'0.5rem', justifyContent:'center'}}>
               {SUGGESTIONS.map(s => (
-                <button key={s} onClick={() => sendMessage(s)} className="suggestion-btn">
+                <button key={s} onClick={() => sendMessage(s)} className="suggestion-btn" style={{padding:'0.4rem 0.8rem', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:'20px', cursor:'pointer'}}>
                   {s}
                 </button>
               ))}
@@ -193,48 +193,44 @@ const Assistant: React.FC = () => {
           </div>
         )}
         {messages.map((msg) => (
-          <div key={msg.id} className={`message ${msg.role}`}>
-            <div className="message-header">
-              <span className="role-label">
-                {msg.role === 'user' ? (
-                  <span className="user-icon">👤</span>
-                ) : (
-                  <span className="assistant-icon">🤖</span>
-                )}
-                {msg.role === 'user' ? 'You' : 'FraudGuard AI'}
+          <div key={msg.id} className={`message ${msg.role}`} style={{marginBottom:'1rem', display:'flex', flexDirection:'column', alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start'}}>
+            <div className="message-header" style={{display:'flex', justifyContent:'space-between', width:'100%', padding:'0 0.2rem'}}>
+              <span className="role-label" style={{fontWeight:'bold'}}>
+                {msg.role === 'user' ? '👤 You' : '🤖 FraudGuard AI'}
               </span>
               <div className="message-actions">
-                <span className="timestamp">{msg.timestamp.toLocaleTimeString()}</span>
+                <span className="timestamp" style={{fontSize:'0.7rem', opacity:0.6}}>{msg.timestamp.toLocaleTimeString()}</span>
                 {msg.role === 'assistant' && (
-                  <button onClick={() => copyMessage(msg.content)} className="copy-btn" title="Copy response">
+                  <button onClick={() => copyMessage(msg.content)} className="copy-btn" style={{marginLeft:'0.5rem', background:'none', border:'none', cursor:'pointer'}} title="Copy response">
                     📋
                   </button>
                 )}
               </div>
             </div>
-            <div className="message-content">
+            <div className="message-content" style={{maxWidth:'85%', padding:'0.8rem', background: msg.role === 'user' ? 'var(--accent)' : 'var(--surface2)', borderRadius:'8px', wordBreak:'break-word'}}>
               <ReactMarkdown>{msg.content}</ReactMarkdown>
             </div>
           </div>
         ))}
         {isLoading && (
-          <div className="typing-indicator">
+          <div className="typing-indicator" style={{display:'flex', gap:'0.3rem', padding:'0.5rem'}}>
             <span>●</span><span>●</span><span>●</span>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input area – unchanged */}
-      <form className="input-area" onSubmit={handleSend}>
+      {/* Input area */}
+      <form className="input-area" onSubmit={handleSend} style={{display:'flex', gap:'0.5rem', paddingTop:'0.5rem', borderTop:'1px solid var(--border)'}}>
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask anything about your fraud data..."
           disabled={isLoading}
+          style={{flex:1, padding:'0.6rem', borderRadius:'4px', border:'1px solid var(--border)'}}
         />
-        <button type="submit" disabled={isLoading || !input.trim()}>
+        <button type="submit" disabled={isLoading || !input.trim()} style={{padding:'0.6rem 1.2rem', background:'var(--accent)', color:'#fff', border:'none', borderRadius:'4px', cursor:'pointer'}}>
           Send
         </button>
       </form>

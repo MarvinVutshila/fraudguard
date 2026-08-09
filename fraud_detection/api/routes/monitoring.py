@@ -13,51 +13,53 @@ router = APIRouter(prefix="/monitoring", tags=["monitoring"])
 async def get_monitoring_stats(user=Depends(get_current_user)):
     today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     yesterday = today - timedelta(days=1)
-    
+
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT COALESCE(SUM(request_count), 0)
-                FROM api_usage_hourly
-                WHERE hour_bucket >= %s
-            """, (today,))
+            # Total requests today
+            cur.execute("SELECT COALESCE(SUM(request_count), 0) FROM api_usage_hourly WHERE hour_bucket >= %s", (today,))
             total_requests = cur.fetchone()[0]
-            
+
+            # Error breakdown: 4xx vs 5xx (we need a separate table or derive from api_requests)
+            # If we have api_requests table, we can query it directly
             cur.execute("""
-                SELECT COALESCE(SUM(error_count), 0)
-                FROM api_usage_hourly
-                WHERE hour_bucket >= %s
+                SELECT status_code, COUNT(*) 
+                FROM api_requests 
+                WHERE timestamp >= %s AND (status_code >= 400 AND status_code < 600)
+                GROUP BY status_code
             """, (today,))
-            total_errors = cur.fetchone()[0]
-            
-            cur.execute("""
-                SELECT COALESCE(AVG(avg_latency), 0)
-                FROM api_usage_hourly
-                WHERE hour_bucket >= %s
-            """, (today,))
+            error_rows = cur.fetchall()
+            auth_errors = sum(cnt for code, cnt in error_rows if 400 <= code < 500)
+            server_errors = sum(cnt for code, cnt in error_rows if 500 <= code < 600)
+
+            # Average latency
+            cur.execute("SELECT COALESCE(AVG(response_time), 0) FROM api_requests WHERE timestamp >= %s", (today,))
             avg_latency = cur.fetchone()[0]
-            
+
+            # Top endpoints
             cur.execute("""
-                SELECT endpoint, SUM(request_count) as total
-                FROM api_usage_hourly
-                WHERE hour_bucket >= %s
+                SELECT endpoint, COUNT(*) as total
+                FROM api_requests
+                WHERE timestamp >= %s
                 GROUP BY endpoint
                 ORDER BY total DESC
                 LIMIT 5
             """, (yesterday,))
             top_endpoints = [{"endpoint": r[0], "count": r[1]} for r in cur.fetchall()]
-            
+
+            # User activity
             cur.execute("""
-                SELECT u.username, SUM(h.request_count)
-                FROM api_usage_hourly h
-                LEFT JOIN users u ON h.user_id = u.id
-                WHERE h.hour_bucket >= %s
+                SELECT u.username, COUNT(r.id)
+                FROM api_requests r
+                LEFT JOIN users u ON r.user_id = u.id
+                WHERE r.timestamp >= %s
                 GROUP BY u.username
                 ORDER BY 2 DESC
                 LIMIT 10
             """, (yesterday,))
             users = [{"username": r[0] or "Unknown", "count": r[1]} for r in cur.fetchall()]
-            
+
+            # System health
             cur.execute("""
                 SELECT cpu_percent, memory_used_mb, memory_total_mb, db_connections
                 FROM system_health
@@ -70,18 +72,23 @@ async def get_monitoring_stats(user=Depends(get_current_user)):
                 "memory_total_mb": health[2] if health else 0,
                 "db_connections": health[3] if health else 0
             }
-            
+
+    error_rate = round((auth_errors + server_errors) / total_requests * 100, 2) if total_requests > 0 else 0
+    overall_status = "healthy" if server_errors == 0 and auth_errors < 5 else "degraded"
+
     return {
         "total_requests_today": total_requests,
-        "error_rate": round(total_errors / total_requests * 100, 2) if total_requests > 0 else 0,
+        "error_rate": error_rate,
+        "auth_errors": auth_errors,
+        "server_errors": server_errors,
         "avg_latency": round(avg_latency, 2),
         "top_endpoints": top_endpoints,
         "users": users,
-        "system_health": system_health
+        "system_health": system_health,
+        "status": overall_status
     }
 
 
-# NEW: renamed endpoint to avoid any routing cache issues
 @router.get("/request-logs")
 async def get_request_logs(
     user_id: Optional[int] = Query(None),
@@ -93,75 +100,50 @@ async def get_request_logs(
     offset: int = Query(0, ge=0),
     user=Depends(get_current_user)
 ):
-    """
-    Return paginated API logs with optional filters.
-    Empty strings are ignored.
-    This endpoint replaces /logs to avoid caching issues.
-    """
-    logger.info(f"📥 /request-logs called with: user_id={user_id}, endpoint={endpoint}, status_code={status_code}, "
-                f"date_from={date_from}, date_to={date_to}, limit={limit}, offset={offset}")
-
-    # Convert empty strings to None
-    if endpoint == "":
-        endpoint = None
-    if status_code == "":
-        status_code = None
-    if date_from == "":
-        date_from = None
-    if date_to == "":
-        date_to = None
-
     sql = """
-        SELECT 
-            r.id, r.user_id, u.username, r.endpoint, r.method,
-            r.status_code, r.response_time, r.client_ip, r.timestamp
+        SELECT r.id, r.user_id, u.username, r.endpoint, r.method,
+               r.status_code, r.response_time, r.client_ip, r.timestamp
         FROM api_requests r
         LEFT JOIN users u ON r.user_id = u.id
         WHERE 1=1
     """
     count_sql = "SELECT COUNT(*) FROM api_requests r WHERE 1=1"
-    params = []
-    count_params = []
+    params, count_params = [], []
 
     if user_id is not None:
         sql += " AND r.user_id = %s"
         count_sql += " AND r.user_id = %s"
-        params.append(user_id)
-        count_params.append(user_id)
+        params.append(user_id); count_params.append(user_id)
 
-    if endpoint is not None:
+    if endpoint:
         sql += " AND r.endpoint = %s"
         count_sql += " AND r.endpoint = %s"
-        params.append(endpoint)
-        count_params.append(endpoint)
+        params.append(endpoint); count_params.append(endpoint)
 
-    if status_code is not None:
+    if status_code:
         try:
-            status_int = int(status_code)
+            st = int(status_code)
             sql += " AND r.status_code = %s"
             count_sql += " AND r.status_code = %s"
-            params.append(status_int)
-            count_params.append(status_int)
+            params.append(st); count_params.append(st)
         except ValueError:
             pass
 
-    if date_from is not None:
+    if date_from:
         try:
-            dt_from = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+            dt = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
             sql += " AND r.timestamp >= %s"
             count_sql += " AND r.timestamp >= %s"
-            params.append(dt_from)
-            count_params.append(dt_from)
+            params.append(dt); count_params.append(dt)
         except ValueError:
             pass
 
-    if date_to is not None:
+    if date_to:
         try:
-            dt_to = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+            dt = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
             sql += " AND r.timestamp <= %s"
             count_sql += " AND r.timestamp <= %s"
-            params.append(dt_to)
-            count_params.append(dt_to)
+            params.append(dt); count_params.append(dt)
         except ValueError:
             pass
 
@@ -172,7 +154,6 @@ async def get_request_logs(
         with conn.cursor() as cur:
             cur.execute(count_sql, count_params)
             total = cur.fetchone()[0]
-
             cur.execute(sql, params)
             rows = cur.fetchall()
             logs = [{
@@ -187,26 +168,21 @@ async def get_request_logs(
                 "timestamp": r[8].isoformat()
             } for r in rows]
 
-    return {
-        "logs": logs,
-        "total": total,
-        "limit": limit,
-        "offset": offset
-    }
+    return {"logs": logs, "total": total, "limit": limit, "offset": offset}
 
 
 @router.post("/cleanup")
 async def cleanup_old_records(user=Depends(get_current_user)):
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cut_off_requests = datetime.utcnow() - timedelta(days=7)
-            cur.execute("DELETE FROM api_requests WHERE timestamp < %s", (cut_off_requests,))
+            cut_off = datetime.utcnow() - timedelta(days=7)
+            cur.execute("DELETE FROM api_requests WHERE timestamp < %s", (cut_off,))
             deleted_req = cur.rowcount
-            
+
             cut_off_hourly = datetime.utcnow() - timedelta(days=180)
             cur.execute("DELETE FROM api_usage_hourly WHERE hour_bucket < %s", (cut_off_hourly,))
             deleted_hourly = cur.rowcount
-            
+
             cut_off_health = datetime.utcnow() - timedelta(days=30)
             cur.execute("DELETE FROM system_health WHERE timestamp < %s", (cut_off_health,))
             deleted_health = cur.rowcount

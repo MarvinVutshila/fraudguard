@@ -81,8 +81,15 @@ export const cleanupMonitoring = () => api.post('/monitoring/cleanup');
 export const getTransactions = (params) => api.get('/transactions', { params });
 export const getTransaction = (id) => api.get(`/transactions/${id}`);
 export const getOverrides = (limit = 100) => api.get(`/transactions/overrides?limit=${limit}`);
-export const setOverride = (transactionId, newDecision, reason) => 
-  api.post('/transactions/override', { transaction_id: transactionId, new_decision: newDecision, reason });
+export const setOverride = (transactionId, newDecision, reason, newProbability = null) => 
+  api.post(`/transactions/${transactionId}/override`, { 
+    new_decision: newDecision, 
+    reason, 
+    new_probability: newProbability 
+  });
+
+// NEW: get pending review count for sidebar badge
+export const getReviewCount = () => api.get('/transactions/review-count');
 
 // 3. Predictions
 export const predictTransaction = (data, explain = true) => 

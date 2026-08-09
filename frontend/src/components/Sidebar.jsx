@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { getReviewCount } from '../services/api';
 
 // Helper to decode JWT token and get role
 const getUserRole = () => {
@@ -50,17 +51,15 @@ export default function Sidebar({ collapsed, setCollapsed }) {
   const [pendingCount, setPendingCount] = useState(0);
   const userRole = getUserRole();
 
-  // Fetch pending approval count (example – implement your own logic)
+  // Fetch pending approval count from the new endpoint
   useEffect(() => {
     const fetchPendingCount = async () => {
       try {
-        // Replace with your actual API call
-        // const res = await api.get('/admin/pending/count');
-        // setPendingCount(res.data.count);
-        // For demo, we'll set a dummy value
-        setPendingCount(0);
+        const res = await getReviewCount();
+        setPendingCount(res.data.pending ?? 0);
       } catch (e) {
-        console.warn('Failed to fetch pending count');
+        console.warn('Failed to fetch review count:', e);
+        setPendingCount(0);
       }
     };
     fetchPendingCount();
