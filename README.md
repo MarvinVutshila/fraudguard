@@ -184,45 +184,40 @@ Trained on a real‑world transaction dataset with 34 engineered features.
 
 📸 Screenshots
 🔐 Application & Workflow
-Login Page	Live Feed Dashboard
-https://data/loginPage.png	https://data/dashboard.png
-Approval Queue	Audit Log
-https://data/HumanApproval.png	https://data/ApprovalAudit.png
+Live Feed Dashboard	Approval Queue
+https://data/dashboard.png	https://data/HumanApproval.png
 Transaction History	AI Assistant
 https://data/TransactionHistory.png	https://data/ai_assistant.png
 Single Predict	Batch Analysis
 https://data/SingleTransactionPredict.png	https://data/BatchTransactionAnalysis.png
-Model Info & Metrics	System Monitoring
-https://data/ModelInformation.png	https://data/monitoring.png
-API Request Logs	Knowledge Base
-https://data/api_logs.png	https://data/knowledge_base.png
-2FA Setup	Admin Control Centre
-https://data/2fa_setup.png	https://data/AdminControlCentre.png
+Model Info	Model Metrics
+https://data/ModelInformation.png	https://data/model_metrics.png
+System Monitoring	API Logs
+https://data/monitoring.png	https://data/api_logs.png
+Knowledge Base	Admin Control Centre
+https://data/knowledge_base.png	https://data/AdminControlCentre.png
 ☁️ AWS & Data Infrastructure
 AWS Console Home	S3 Buckets
 https://data/aws_console_home.png	https://data/aws_s3_buckets.png
 AWS Glue Crawler	AWS Glue Database
 https://data/aws_glue_crawler.png	https://data/aws_glue_database.png
-Athena Query Editor	Athena Query Results
-https://data/athena_query_editor.png	https://data/athena_results.png
-Athena Table Schema	ETL Script Output
-https://data/athena_table_schema.png	https://data/etl_script_output.png
+Athena Query Editor	ETL Script Output
+https://data/athena_query_editor.png	https://data/etl_script_output.png
+GitHub Actions
+https://data/github_actions.png
 🔄 Airflow & DevOps
 Airflow DAG Runs	Airflow Email Notification
 https://data/airflow_dag_runs.png	https://data/email_airflow_notifications.png
-Airflow Email Detail	GitHub Actions
-https://data/email_airflow_detail.png	https://data/github_actions.png
-📈 Superset & Streamlit Analytics
-Superset Bar Chart	Superset Pie Chart
-https://data/superset_bar_chart.png	https://data/superset_pie_chart.png
-Superset Table View	Streamlit Overview
-https://data/superset_table_view.png	https://data/streamlit_overview.png
-Streamlit Transactions	Streamlit Users
-https://data/streamlit_transactions.png	https://data/streamlit_users.png
-Streamlit API & System	Streamlit Audit Log
-https://data/streamlit_api_system.png	https://data/streamlit_audit.png
-Streamlit Overrides
+Airflow Email Detail	System Health
+https://data/email_airflow_detail.png	https://data/system_health.png
+📈 Streamlit Analytics
+Overview	Users
+https://data/streamlit_overview.png	https://data/streamlit_users.png
+Overrides by Reviewer
 https://data/streamlit_overrides.png
+📊 Superset
+Table View
+https://data/superset_table_view.png
 🚀 Deployment
 The application is containerised with Docker and deployed via GitHub Actions to an AWS EC2 instance.
 
@@ -244,10 +239,12 @@ text
 
 ---
 
-### 🚀 How to push this to GitHub right now:
-1. Save the text above into your `README.md` file in VS Code.
-2. In your terminal (PowerShell), run:
+### 🚀 Final step – push this README
+
+1. Save the above as `README.md` in your `C:\Users\marvi\fraudguard` folder (overwrite the existing one).
+2. In PowerShell (still in that folder), run:
+
 ```powershell
 git add README.md
-git commit -m "Finalized README with all screenshots and badges"
+git commit -m "Final professional README with all 28 screenshots"
 git push origin main
