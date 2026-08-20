@@ -9,7 +9,7 @@
 ![AWS](https://img.shields.io/badge/AWS-Glue_Athena_S3-orange)
 ![Streamlit](https://img.shields.io/badge/Streamlit-Analytics-red)
 
-> An end‑to‑end AI fraud detection platform built with Machine Learning, FastAPI, React, PostgreSQL, and human‑review workflows, deployed on AWS with automated ETL pipelines.
+> An end‑to‑end AI fraud detection platform built with Machine Learning, FastAPI, React, PostgreSQL, and human‑review workflows, deployed on AWS with automated ETL and Airflow pipelines.
 
 ---
 
@@ -24,55 +24,56 @@
 
 FraudGuard is a banking fraud detection system that uses an **XGBoost machine learning model** to analyse transactions and classify them as:
 
-- ✅ **Approved** – low risk, automatically passed
-- ⚖️ **Human Review** – suspicious, requires analyst decision
-- 🚫 **Blocked** – high risk, prevented
+- ✅ **Approved** – low risk, automatically passed.
+- ⚖️ **Human Review** – suspicious, requires analyst decision.
+- 🚫 **Blocked** – high risk, prevented.
 
 The platform provides:
 
-- Real‑time transaction monitoring
-- Single‑transaction & batch prediction
-- Human review workflow with audit trails
-- Admin control centre with user management
-- ML model insights (feature importance, metrics)
-- **AWS‑backed data pipeline** (Glue, Athena, S3)
-- **Streamlit analytics dashboard** for deep insights
+- Real‑time transaction monitoring with live feeds.
+- Single‑transaction & batch CSV prediction.
+- Human review workflow with full audit trails.
+- Admin control centre with user management and 2FA.
+- ML model insights (feature importance, metrics, auto‑retraining).
+- **AWS‑backed data pipeline** (Glue, Athena, S3, Airflow).
+- **Streamlit & Superset** analytics dashboards for deep insights.
 
 ---
 
 ## ✨ Features
 
 ### 🤖 Machine Learning
-- XGBoost fraud detection model (99.82% accuracy)
-- Feature engineering with 34 features
-- Fraud probability scoring and risk classification
-- Model retraining and evaluation
-- Explainable AI with SHAP feature importance
+- XGBoost fraud detection model (99.82% accuracy).
+- Feature engineering with 34 engineered transaction features.
+- Fraud probability scoring and risk classification.
+- On‑demand model retraining and evaluation.
+- Explainable AI with SHAP feature importance.
 
 ### 📡 Real‑Time Monitoring
-- Live transaction feed
-- Approval queue with 350+ pending items
-- Dashboard metrics (total transactions, blocked, pending reviews)
-- Probability trend graphs
+- Live transaction feed with auto‑refresh.
+- Approval queue with pending reviews.
+- Dashboard metrics (total transactions, blocked, pending reviews).
+- Real‑time probability trend graphs.
 
 ### ⚖️ Human Review Workflow
-- Suspicious transaction queue
-- Approve or block transactions with comments
-- Full audit history of all overrides
-- Analyst‑friendly UI
+- Suspicious transaction queue.
+- Approve or block transactions with comments.
+- Full audit history of all overrides.
+- Analyst‑friendly UI with AI decision support.
 
 ### 📁 Batch Processing
-- Upload CSV files for bulk scoring
-- Automatic fraud prediction and decision generation
+- Drag‑and‑drop CSV uploads for bulk scoring.
+- Automatic fraud prediction and decision generation.
 
 ### 🔐 Security
-- JWT authentication with role‑based access (Admin / Analyst)
-- Password hashing and 2FA setup (QR code)
-- Protected admin routes and audit logging
+- JWT authentication with role‑based access (Admin / Analyst).
+- Password hashing and 2FA setup (QR code).
+- Protected admin routes and detailed audit logging.
 
 ### 📊 Analytics & Reporting
-- **Streamlit dashboard** with system overview, decision funnel, risk trends, user activity, API health, and audit logs
-- **Superset integration** for advanced charting and exploration (connected to Athena)
+- **Streamlit Command Centre**: System overview, decision funnels, risk trends, user activity, API health, and audit logs.
+- **Superset BI Dashboards**: Connected directly to Athena for advanced charting.
+- **Automated Email Alerts**: Airflow alerts on successful/failed ETL runs.
 
 ---
 
@@ -87,16 +88,18 @@ FastAPI API
 XGBoost PostgreSQL JWT
 ML Model Database Security
 │
-└── AWS Data Pipeline (Glue, Athena, S3)
+└── AWS Data Pipeline (S3, Glue, Athena, Airflow)
 │
 └── Streamlit / Superset Dashboards
 
 text
 
-### AWS Data Pipeline
-- **AWS Glue** crawls raw data from S3 and creates tables in the Data Catalog.
-- **AWS Athena** serves as the query engine for the `fraudguard_dwh` database (with `silver_transactions`, `silver_login_logs`, etc.).
-- **Streamlit** and **Superset** connect directly to Athena for analytics.
+### AWS & Data Infrastructure
+- **AWS S3**: Stores raw, cleaned, and processed Parquet data.
+- **AWS Glue**: Crawls S3 data and catalogs tables in `fraudguard_dwh`.
+- **AWS Athena**: Query engine for the `silver_transactions`, `silver_login_logs`, and other tables.
+- **Apache Airflow**: Orchestrates the ETL pipeline and sends Gmail/SMTP notifications for task status.
+- **Streamlit & Superset**: Both connect directly to Athena for deep analytics.
 
 ---
 
@@ -108,7 +111,7 @@ text
 | **Backend** | FastAPI, Python, SQLAlchemy |
 | **Database** | PostgreSQL |
 | **Machine Learning** | XGBoost, Scikit‑learn, Pandas, NumPy, SHAP |
-| **Data Infrastructure** | AWS Glue, Athena, S3 |
+| **Data Infrastructure** | AWS S3, AWS Glue, AWS Athena, Apache Airflow |
 | **Analytics** | Streamlit, Apache Superset |
 | **Deployment** | Docker, GitHub Actions (CI/CD to EC2), Render |
 
@@ -180,53 +183,54 @@ ROC AUC	98.16%
 Trained on a real‑world transaction dataset with 34 engineered features.
 
 📸 Screenshots
-🔐 Login Page
-https://data/loginPage.png
-
-📊 Main Dashboard (Live Feed)
-https://data/dashboard.png
-
-⚖️ Approval Queue
-https://data/HumanApproval.png
-
-📝 Audit Log
-https://data/ApprovalAudit.png
-
-📋 Transaction History
-https://data/TransactionHistory.png
-
-🔍 Single Transaction Prediction
-https://data/SingleTransactionPredict.png
-
-📁 Batch Analysis
-https://data/BatchTransactionAnalysis.png
-
-🧠 Model Info & Metrics
-https://data/ModelInformation.png
-
-🛡️ Admin Control Centre
-https://data/AdminControlCentre.png
-https://data/AdminControlCentre1.png
-https://data/AdminControlCentre2.png
-https://data/AdminControlCentre3.png
-
-📈 Analytics Dashboard (Streamlit)
-https://data/streamlit_overview.png
-(You can add your own screenshot of the Streamlit dashboard)
-
-📊 Superset Charts (Athena)
-https://data/superset_chart.png
-
-🔄 AWS Glue Crawler & Athena
-https://data/glue_crawler.png
-https://data/athena_query.png
-
+🔐 Application & Workflow
+Login Page	Live Feed Dashboard
+https://data/loginPage.png	https://data/dashboard.png
+Approval Queue	Audit Log
+https://data/HumanApproval.png	https://data/ApprovalAudit.png
+Transaction History	AI Assistant
+https://data/TransactionHistory.png	https://data/ai_assistant.png
+Single Predict	Batch Analysis
+https://data/SingleTransactionPredict.png	https://data/BatchTransactionAnalysis.png
+Model Info & Metrics	System Monitoring
+https://data/ModelInformation.png	https://data/monitoring.png
+API Request Logs	Knowledge Base
+https://data/api_logs.png	https://data/knowledge_base.png
+2FA Setup	Admin Control Centre
+https://data/2fa_setup.png	https://data/AdminControlCentre.png
+☁️ AWS & Data Infrastructure
+AWS Console Home	S3 Buckets
+https://data/aws_console_home.png	https://data/aws_s3_buckets.png
+AWS Glue Crawler	AWS Glue Database
+https://data/aws_glue_crawler.png	https://data/aws_glue_database.png
+Athena Query Editor	Athena Query Results
+https://data/athena_query_editor.png	https://data/athena_results.png
+Athena Table Schema	ETL Script Output
+https://data/athena_table_schema.png	https://data/etl_script_output.png
+🔄 Airflow & DevOps
+Airflow DAG Runs	Airflow Email Notification
+https://data/airflow_dag_runs.png	https://data/email_airflow_notifications.png
+Airflow Email Detail	GitHub Actions
+https://data/email_airflow_detail.png	https://data/github_actions.png
+📈 Superset & Streamlit Analytics
+Superset Bar Chart	Superset Pie Chart
+https://data/superset_bar_chart.png	https://data/superset_pie_chart.png
+Superset Table View	Streamlit Overview
+https://data/superset_table_view.png	https://data/streamlit_overview.png
+Streamlit Transactions	Streamlit Users
+https://data/streamlit_transactions.png	https://data/streamlit_users.png
+Streamlit API & System	Streamlit Audit Log
+https://data/streamlit_api_system.png	https://data/streamlit_audit.png
+Streamlit Overrides
+https://data/streamlit_overrides.png
 🚀 Deployment
 The application is containerised with Docker and deployed via GitHub Actions to an AWS EC2 instance.
 
-CI/CD: On every push to main, GitHub Actions builds and deploys the latest images.
+CI/CD: On every push to main, GitHub Actions builds and deploys the latest images automatically.
 
-Render hosts the public demo (login page).
+Render hosts the public demo application.
+
+Airflow runs on the same EC2 instance, orchestrating daily ETL jobs and sending status emails.
 
 👨‍💻 Author
 Marvin Vutshila
@@ -240,13 +244,10 @@ text
 
 ---
 
-## 🖼️ How to Add the Screenshots
-
-1. **Place your images** inside the `data/` folder (as you already have). Ensure the filenames match those in the README (e.g., `loginPage.png`, `dashboard.png`, etc.).
-2. **If you have additional screenshots** (like the Streamlit dashboard or Superset charts), rename them accordingly and add the paths.
-3. **Commit and push** the updated `README.md` and the `data/` folder to GitHub.
-
-```bash
-git add README.md data/
-git commit -m "Update README with comprehensive documentation and screenshots"
+### 🚀 How to push this to GitHub right now:
+1. Save the text above into your `README.md` file in VS Code.
+2. In your terminal (PowerShell), run:
+```powershell
+git add README.md
+git commit -m "Finalized README with all screenshots and badges"
 git push origin main
