@@ -1,6 +1,40 @@
-## 📸 Screenshots
+# 🛡️ FraudGuard: Enterprise Real-Time Fraud Detection Platform
 
-### 🔐 Application & Workflow
+![FraudGuard Overview](data/dashboard.png)
+
+## 📖 Project Overview
+
+**FraudGuard** is an end-to-end, full-stack Machine Learning platform designed to detect fraudulent financial transactions in real-time. Built with a highly scalable microservices architecture, it bridges the gap between advanced machine learning anomaly detection and actionable human-in-the-loop operational workflows. 
+
+The system continuously monitors incoming transactions, instantly classifying them as legitimate, suspicious (queued for manual review), or fraudulent. It features an **AI Assistant** powered by SHAP values to explain complex model predictions to human analysts in plain text, comprehensive cloud-native data pipelines, and deep analytics dashboards.
+
+---
+
+## ✨ Key Features
+
+- **⚡ Real-Time & Batch ML Inference**: Utilizes advanced deep learning Autoencoder models deployed via FastAPI for sub-millisecond fraud scoring. Supports both live single predictions and bulk batch analysis.
+- **🧠 Explainable AI (XAI)**: Integrated SHAP (SHapley Additive exPlanations) explainer provides human-readable context for *why* a transaction was flagged, empowering risk analysts to make confident decisions.
+- **👥 Human-in-the-Loop Workflow**: A dedicated Analyst Dashboard with an Approval Queue allowing teams to override or confirm suspicious transactions, generating clean labeled data for future model retraining.
+- **☁️ Cloud-Native Data Lake**: Built on AWS S3, automatically crawled and cataloged by AWS Glue, and queried via Amazon Athena for highly scalable analytical workloads.
+- **🔄 Automated Pipelines & DevOps**: Orchestrated via Apache Airflow with automated email alerts for pipeline states. CI/CD automation powered by GitHub Actions.
+- **📊 Advanced Analytics**: Multi-platform BI integration featuring Streamlit for operational analytics and Apache Superset for deep, slice-and-dice transactional insights.
+
+---
+
+## 🛠️ Architecture & Tech Stack
+
+- **Frontend:** React 19, Vite, Chart.js, Tailwind/CSS
+- **Backend & ML Server:** Python, FastAPI, PostgreSQL
+- **Machine Learning:** PyTorch (Autoencoders), Scikit-Learn, SHAP
+- **Data Engineering & Cloud (AWS):** S3 (Data Lake), AWS Glue (Crawler & ETL), Amazon Athena
+- **DataOps & DevOps:** Apache Airflow, GitHub Actions
+- **Business Intelligence:** Streamlit, Apache Superset
+
+---
+
+## 📸 System Gallery
+
+### 🚀 Application & Workflow
 
 | Live Feed Dashboard | Approval Queue |
 |:---:|:---:|
@@ -44,7 +78,7 @@
 |:---:|
 | ![Actions](data/github_actions.png) |
 
-### 🔄 Airflow & DevOps
+### ⚙️ Airflow & DevOps
 
 | Airflow DAG Runs | Airflow Email Notification |
 |:---:|:---:|
@@ -64,7 +98,7 @@
 |:---:|
 | ![Overrides](data/streamlit_overrides.png) |
 
-### 📊 Superset
+### 📉 Superset
 
 | Table View |
 |:---:|
